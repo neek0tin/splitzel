@@ -1,26 +1,45 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --color-navy: #192f4d;
+  --color-navy-dark: #0f1d31;
+  --color-skyblue: #5aafed;
+  --color-orange: #fd9c35;
+  --color-yellow: #fcbf49;
+  --color-cream: #faf6ee;
+  --color-surface-dark: #22385a;
+
+  --font-primary: var(--font-primary-raw), "Syne", sans-serif;
+  --font-secondary: var(--font-secondary-raw), "Space Grotesk", sans-serif;
+
+  --tracking-brand: -0.045em;
+
+  --radius-2xl: 16px;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html,
+body {
+  height: 100%;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--color-cream);
+  color: var(--color-navy);
+  font-family: var(--font-secondary);
+  -webkit-tap-highlight-color: transparent;
+}
+
+* {
+  scrollbar-width: none;
+}
+*::-webkit-scrollbar {
+  display: none;
+}
+
+input,
+button,
+textarea {
+  font-family: inherit;
 }
