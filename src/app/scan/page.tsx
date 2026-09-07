@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Image as ImageIcon, Sparkles, X, Zap } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
-import { generateMockScannedReceipt } from "@/lib/mockData";
+import { generateMockScannedReceipt } from "@/lib/mockScan";
 
 export default function CapturePage() {
   const router = useRouter();

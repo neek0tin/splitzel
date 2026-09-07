@@ -10,17 +10,24 @@ import { useAppStore } from "@/store/useAppStore";
 export default function PersonalizePage() {
   const router = useRouter();
   const setUserName = useAppStore((s) => s.setUserName);
-  const completeOnboarding = useAppStore((s) => s.completeOnboarding);
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const canContinue = firstName.trim().length > 0 && lastName.trim().length > 0;
+  const canContinue = firstName.trim().length > 0 && lastName.trim().length > 0 && !submitting;
 
-  const handleContinue = () => {
+  const handleContinue = async () => {
     if (!canContinue) return;
-    setUserName(firstName.trim(), lastName.trim());
-    completeOnboarding();
-    router.push("/home");
+    setSubmitting(true);
+    setError(null);
+    try {
+      await setUserName(firstName.trim(), lastName.trim());
+      router.push("/home");
+    } catch {
+      setError("Couldn't save your name. Check your connection and try again.");
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -53,9 +60,12 @@ export default function PersonalizePage() {
         </div>
       </div>
 
-      <Button variant="primary" size="lg" fullWidth disabled={!canContinue} onClick={handleContinue}>
-        Continue
-      </Button>
+      <div>
+        {error && <p className="mb-3 text-center text-sm text-orange font-secondary">{error}</p>}
+        <Button variant="primary" size="lg" fullWidth disabled={!canContinue} onClick={handleContinue}>
+          {submitting ? "Saving..." : "Continue"}
+        </Button>
+      </div>
     </div>
   );
 }

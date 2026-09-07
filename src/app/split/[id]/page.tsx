@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useMemo, useState } from "react";
+import { use, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { CheckCircle2, Clock } from "lucide-react";
 import { ScreenHeader } from "@/components/ScreenHeader";
@@ -9,24 +9,41 @@ import { Card } from "@/components/ui/Card";
 import { StatusPill } from "@/components/ui/StatusPill";
 import { ProgressBar } from "@/components/ui/ProgressBar";
 import { Button } from "@/components/ui/Button";
+import { PretzelIcon } from "@/components/ui/Logo";
 import { SettleUpModal } from "@/components/SettleUpModal";
 import { useAppStore } from "@/store/useAppStore";
-import { CURRENT_USER_ID } from "@/lib/mockData";
 import { getOverdueDays, getPaidCount, getShareForMember, getSplitStatus } from "@/lib/aggregates";
 import { formatCurrency, formatDate } from "@/lib/utils";
 
 export default function SplitDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const router = useRouter();
+  const initialized = useAppStore((s) => s.initialized);
+  const hydrate = useAppStore((s) => s.hydrate);
   const splits = useAppStore((s) => s.splits);
   const friends = useAppStore((s) => s.friends);
   const markMemberPaid = useAppStore((s) => s.markMemberPaid);
 
   const [settleOpen, setSettleOpen] = useState(false);
 
+  useEffect(() => {
+    hydrate();
+  }, [hydrate]);
+
   const split = splits.find((s) => s.id === id);
 
   const shares = useMemo(() => (split ? split.members.map((m) => getShareForMember(split, m.id)) : []), [split]);
+
+  if (!initialized) {
+    return (
+      <div className="flex flex-1 flex-col">
+        <ScreenHeader title="Split Summary" onBack={() => router.push("/bills")} />
+        <div className="flex flex-1 items-center justify-center">
+          <PretzelIcon size={40} className="animate-pulse" />
+        </div>
+      </div>
+    );
+  }
 
   if (!split) {
     return (
@@ -42,9 +59,9 @@ export default function SplitDetailPage({ params }: { params: Promise<{ id: stri
   const status = getSplitStatus(split);
   const { paid, total } = getPaidCount(split);
   const overdueDays = getOverdueDays(split);
-  const isPayee = split.payeeId === CURRENT_USER_ID;
-  const me = split.members.find((m) => m.id === CURRENT_USER_ID);
-  const payee = friends.find((f) => f.id === split.payeeId) ?? null;
+  const isPayee = split.payeeFriendId === null;
+  const me = split.members.find((m) => m.isCurrentUser);
+  const payee = friends.find((f) => f.id === split.payeeFriendId) ?? null;
 
   return (
     <div className="flex flex-1 flex-col">
@@ -95,7 +112,7 @@ export default function SplitDetailPage({ params }: { params: Promise<{ id: stri
           <div className="flex flex-col gap-3">
             {split.members.map((m) => {
               const share = shares.find((s) => s?.memberId === m.id);
-              const canReceive = isPayee && m.id !== CURRENT_USER_ID && m.status === "pending";
+              const canReceive = isPayee && !m.isCurrentUser && m.status === "pending";
               return (
                 <Card key={m.id} outlined>
                   <div className="flex items-center gap-3">
@@ -142,9 +159,9 @@ export default function SplitDetailPage({ params }: { params: Promise<{ id: stri
         open={settleOpen}
         onClose={() => setSettleOpen(false)}
         split={split}
-        memberId={CURRENT_USER_ID}
+        memberId={me?.id ?? ""}
         payee={payee}
-        onSettled={() => markMemberPaid(split.id, CURRENT_USER_ID)}
+        onSettled={() => me && markMemberPaid(split.id, me.id)}
       />
     </div>
   );

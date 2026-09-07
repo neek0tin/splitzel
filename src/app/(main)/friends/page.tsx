@@ -24,6 +24,7 @@ export default function FriendsPage() {
   const [bankName, setBankName] = useState("");
   const [bankAccountNumber, setBankAccountNumber] = useState("");
   const [qrUploaded, setQrUploaded] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   const resetForm = () => {
     setName("");
@@ -34,25 +35,30 @@ export default function FriendsPage() {
     setQrUploaded(false);
   };
 
-  const canSave = name.trim().length > 0 && phone.trim().length > 0;
+  const canSave = name.trim().length > 0 && phone.trim().length > 0 && !saving;
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!canSave) return;
-    addFriend({
-      name: name.trim(),
-      phone: phone.trim(),
-      avatarColor: "#5AAFED",
-      payment: {
-        gcashNumber: gcashNumber.trim() || undefined,
-        gcashName: name.trim(),
-        bankName: bankName.trim() || undefined,
-        bankAccountNumber: bankAccountNumber.trim() || undefined,
-        bankAccountName: bankName.trim() ? name.trim() : undefined,
-        hasQr: qrUploaded,
-      },
-    });
-    resetForm();
-    setAddOpen(false);
+    setSaving(true);
+    try {
+      await addFriend({
+        name: name.trim(),
+        phone: phone.trim(),
+        avatarColor: "#5AAFED",
+        payment: {
+          gcashNumber: gcashNumber.trim() || undefined,
+          gcashName: name.trim(),
+          bankName: bankName.trim() || undefined,
+          bankAccountNumber: bankAccountNumber.trim() || undefined,
+          bankAccountName: bankName.trim() ? name.trim() : undefined,
+          hasQr: qrUploaded,
+        },
+      });
+      resetForm();
+      setAddOpen(false);
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -120,7 +126,7 @@ export default function FriendsPage() {
           </div>
 
           <Button fullWidth size="lg" disabled={!canSave} onClick={handleSave}>
-            Save Friend
+            {saving ? "Saving..." : "Save Friend"}
           </Button>
         </div>
       </Modal>

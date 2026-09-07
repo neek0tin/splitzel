@@ -24,6 +24,8 @@ export default function AssignMembersPage() {
   const [friendsOpen, setFriendsOpen] = useState(false);
   const [guestOpen, setGuestOpen] = useState(false);
   const [guestName, setGuestName] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!draft.receipt || !draft.method) router.replace("/scan");
@@ -56,9 +58,17 @@ export default function AssignMembersPage() {
     setGuestOpen(false);
   };
 
-  const handleReview = () => {
-    const id = finalizeSplit();
-    if (id) router.push(`/split/${id}`);
+  const handleReview = async () => {
+    setSubmitting(true);
+    setError(null);
+    try {
+      const id = await finalizeSplit();
+      if (id) router.push(`/split/${id}`);
+      else setSubmitting(false);
+    } catch {
+      setError("Couldn't create the split. Check your connection and try again.");
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -171,10 +181,13 @@ export default function AssignMembersPage() {
       </div>
 
       <div className="px-6 pb-8 pt-2">
-        <Button fullWidth size="lg" disabled={draft.members.length < 2} onClick={handleReview}>
-          Review Split
+        <Button fullWidth size="lg" disabled={draft.members.length < 2 || submitting} onClick={handleReview}>
+          {submitting ? "Creating Split..." : "Review Split"}
         </Button>
-        {draft.members.length < 2 && (
+        {error && (
+          <p className="mt-2 text-center text-xs text-orange font-secondary">{error}</p>
+        )}
+        {!error && draft.members.length < 2 && (
           <p className="mt-2 text-center text-xs text-navy/40 dark:text-white/40 font-secondary">
             Add at least one more person to continue.
           </p>

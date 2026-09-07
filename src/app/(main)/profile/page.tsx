@@ -17,12 +17,18 @@ export default function ProfilePage() {
   const toggleDarkMode = useAppStore((s) => s.toggleDarkMode);
 
   const [gcashOpen, setGcashOpen] = useState(false);
-  const [gcashNumber, setGcashNumber] = useState(user.payment.gcashNumber ?? "");
+  const [gcashNumber, setGcashNumber] = useState("");
 
+  if (!user) return null;
   const fullName = `${user.firstName} ${user.lastName}`.trim() || "Splitzel User";
 
-  const handleSaveGcash = () => {
-    updateUserPayment({ gcashNumber });
+  const openGcashModal = () => {
+    setGcashNumber(user.payment.gcashNumber ?? "");
+    setGcashOpen(true);
+  };
+
+  const handleSaveGcash = async () => {
+    await updateUserPayment({ gcashNumber });
     setGcashOpen(false);
   };
 
@@ -48,7 +54,7 @@ export default function ProfilePage() {
               icon={<Wallet size={18} />}
               label="Linked GCash"
               value={user.payment.gcashNumber || "Not linked"}
-              onClick={() => setGcashOpen(true)}
+              onClick={openGcashModal}
             />
           </Card>
         </div>

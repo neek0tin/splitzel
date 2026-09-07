@@ -4,7 +4,6 @@ import { useMemo } from "react";
 import Link from "next/link";
 import { Bell } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
-import { CURRENT_USER_ID } from "@/lib/mockData";
 import { getUserBalance } from "@/lib/aggregates";
 import { formatCurrency } from "@/lib/utils";
 import { Avatar } from "@/components/ui/Avatar";
@@ -21,9 +20,10 @@ export default function HomePage() {
   const user = useAppStore((s) => s.user);
   const splits = useAppStore((s) => s.splits);
 
-  const balance = useMemo(() => getUserBalance(splits, CURRENT_USER_ID), [splits]);
+  const balance = useMemo(() => getUserBalance(splits), [splits]);
   const recentSplits = useMemo(() => [...splits].sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1)).slice(0, 5), [splits]);
 
+  if (!user) return null;
   const displayName = user.firstName || "there";
 
   return (

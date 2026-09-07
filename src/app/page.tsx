@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { SplitzelLogo } from "@/components/ui/Logo";
+import { useAppStore } from "@/store/useAppStore";
 
 export default function SplashPage() {
   const router = useRouter();
@@ -11,6 +12,8 @@ export default function SplashPage() {
   useEffect(() => {
     const start = Date.now();
     const duration = 1600;
+    let cancelled = false;
+
     const tick = () => {
       const elapsed = Date.now() - start;
       const pct = Math.min(100, (elapsed / duration) * 100);
@@ -18,10 +21,22 @@ export default function SplashPage() {
       if (pct < 100) requestAnimationFrame(tick);
     };
     const raf = requestAnimationFrame(tick);
-    const timeout = setTimeout(() => router.replace("/register"), duration + 200);
+
+    useAppStore
+      .getState()
+      .hydrate()
+      .then((user) => {
+        if (cancelled) return;
+        const elapsed = Date.now() - start;
+        const remaining = Math.max(0, duration + 200 - elapsed);
+        setTimeout(() => {
+          if (!cancelled) router.replace(user?.firstName ? "/home" : "/register");
+        }, remaining);
+      });
+
     return () => {
+      cancelled = true;
       cancelAnimationFrame(raf);
-      clearTimeout(timeout);
     };
   }, [router]);
 

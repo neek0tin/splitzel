@@ -32,22 +32,22 @@ export function isOverdue(split: Split): boolean {
   return hoursSince(split.createdAt) > 24;
 }
 
-export function getUserBalance(splits: Split[], userId: string) {
+export function getUserBalance(splits: Split[]) {
   let owe = 0;
   let owed = 0;
 
   splits.forEach((split) => {
     const shares = getSplitShares(split);
-    const isPayee = split.payeeId === userId;
+    const isPayee = split.payeeFriendId === null;
 
     split.members.forEach((m) => {
       if (m.status !== "pending") return;
       const share = shares.find((s) => s.memberId === m.id);
       if (!share) return;
 
-      if (isPayee && m.id !== userId) {
+      if (isPayee && !m.isCurrentUser) {
         owed += share.total;
-      } else if (!isPayee && m.id === userId) {
+      } else if (!isPayee && m.isCurrentUser) {
         owe += share.total;
       }
     });

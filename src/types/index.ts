@@ -8,10 +8,10 @@ export interface PaymentInfo {
 }
 
 export interface CurrentUser {
+  id: string;
   firstName: string;
   lastName: string;
   avatarColor: string;
-  onboarded: boolean;
   payment: PaymentInfo;
 }
 
@@ -67,7 +67,8 @@ export interface Split {
   members: SplitMember[];
   assignments: ItemAssignment[];
   createdAt: string;
-  payeeId: string;
+  /** null means the current user (split owner) is the payee; otherwise a friend's id */
+  payeeFriendId: string | null;
 }
 
 export interface ShareBreakdown {
