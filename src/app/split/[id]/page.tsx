@@ -2,7 +2,7 @@
 
 import { use, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { CheckCircle2, Clock } from "lucide-react";
+import { Bell, BellRing, CheckCircle2, Clock } from "lucide-react";
 import { ScreenHeader } from "@/components/ScreenHeader";
 import { Avatar } from "@/components/ui/Avatar";
 import { Card } from "@/components/ui/Card";
@@ -20,11 +20,15 @@ export default function SplitDetailPage({ params }: { params: Promise<{ id: stri
   const router = useRouter();
   const initialized = useAppStore((s) => s.initialized);
   const hydrate = useAppStore((s) => s.hydrate);
+  const user = useAppStore((s) => s.user);
   const splits = useAppStore((s) => s.splits);
   const friends = useAppStore((s) => s.friends);
   const markMemberPaid = useAppStore((s) => s.markMemberPaid);
+  const nudgeMember = useAppStore((s) => s.nudgeMember);
 
   const [settleOpen, setSettleOpen] = useState(false);
+  const [nudgingId, setNudgingId] = useState<string | null>(null);
+  const [nudgedIds, setNudgedIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     hydrate();
@@ -56,12 +60,28 @@ export default function SplitDetailPage({ params }: { params: Promise<{ id: stri
     );
   }
 
+  const handleNudge = async (memberId: string) => {
+    setNudgingId(memberId);
+    try {
+      await nudgeMember(memberId);
+      setNudgedIds((prev) => new Set(prev).add(memberId));
+    } catch {
+      // non-critical — just let them try again
+    } finally {
+      setNudgingId(null);
+    }
+  };
+
   const status = getSplitStatus(split);
   const { paid, total } = getPaidCount(split);
   const overdueDays = getOverdueDays(split);
-  const isPayee = split.payeeUserId === null;
+  // payeeUserId is only set on splits where someone other than the owner paid;
+  // when null, the owner is the payee — who may not be the person viewing this,
+  // now that a split is visible to every member, not just its owner.
+  const payeeId = split.payeeUserId ?? split.ownerId;
+  const isPayee = user?.id === payeeId;
   const me = split.members.find((m) => m.isCurrentUser);
-  const payee = friends.find((f) => f.id === split.payeeUserId) ?? null;
+  const payee = friends.find((f) => f.id === payeeId) ?? null;
 
   return (
     <div className="flex flex-1 flex-col">
@@ -133,12 +153,33 @@ export default function SplitDetailPage({ params }: { params: Promise<{ id: stri
                     )}
                   </div>
                   {canReceive && (
-                    <button
-                      onClick={() => markMemberPaid(split.id, m.id)}
-                      className="mt-3 w-full rounded-2xl border-2 border-navy/15 dark:border-white/20 py-2 text-xs font-semibold text-navy dark:text-white active:scale-95 transition-transform"
-                    >
-                      Mark as Received
-                    </button>
+                    <div className="mt-3 flex gap-2">
+                      <button
+                        onClick={() => markMemberPaid(split.id, m.id)}
+                        className="flex-1 rounded-2xl border-2 border-navy/15 dark:border-white/20 py-2 text-xs font-semibold text-navy dark:text-white active:scale-95 transition-transform"
+                      >
+                        Mark as Received
+                      </button>
+                      {!m.isGuest && (
+                        <button
+                          onClick={() => handleNudge(m.id)}
+                          disabled={nudgingId === m.id || nudgedIds.has(m.id)}
+                          className="flex items-center justify-center gap-1.5 rounded-2xl border-2 border-navy/15 dark:border-white/20 px-3 py-2 text-xs font-semibold text-navy dark:text-white active:scale-95 transition-transform disabled:opacity-50"
+                        >
+                          {nudgedIds.has(m.id) ? (
+                            <>
+                              <BellRing size={14} />
+                              Sent
+                            </>
+                          ) : (
+                            <>
+                              <Bell size={14} />
+                              {nudgingId === m.id ? "..." : "Remind"}
+                            </>
+                          )}
+                        </button>
+                      )}
+                    </div>
                   )}
                 </Card>
               );

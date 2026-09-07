@@ -32,13 +32,17 @@ export function isOverdue(split: Split): boolean {
   return hoursSince(split.createdAt) > 24;
 }
 
-export function getUserBalance(splits: Split[]) {
+export function getUserBalance(splits: Split[], currentUserId: string) {
   let owe = 0;
   let owed = 0;
 
   splits.forEach((split) => {
     const shares = getSplitShares(split);
-    const isPayee = split.payeeUserId === null;
+    // payeeUserId only overrides who's owed on splits where someone else paid;
+    // when null, the split's *owner* is the payee — which may not be the
+    // viewer, now that a split can show up for anyone in it, not just its owner.
+    const payeeId = split.payeeUserId ?? split.ownerId;
+    const isPayee = payeeId === currentUserId;
 
     split.members.forEach((m) => {
       if (m.status !== "pending") return;

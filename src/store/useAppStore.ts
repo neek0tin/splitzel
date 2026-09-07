@@ -6,18 +6,36 @@ import {
   createSplit,
   ensureSession,
   fetchFriends,
+  fetchNotifications as fetchNotificationsQuery,
   fetchProfile,
   fetchSplits,
   findFriendByCode as findFriendByCodeQuery,
+  markAllNotificationsRead as markAllNotificationsReadQuery,
+  markNotificationRead as markNotificationReadQuery,
   markSplitMemberPaid,
+  nudgeSplitMember,
   removeFriendConnection,
+  subscribeToNotifications,
   updateProfile,
   type FriendCodeMatch,
 } from "@/lib/supabase/queries";
-import type { CurrentUser, DraftScan, Friend, ItemAssignment, Receipt, Split, SplitMember, SplitMethod } from "@/types";
+import type {
+  AppNotification,
+  CurrentUser,
+  DraftScan,
+  Friend,
+  ItemAssignment,
+  Receipt,
+  Split,
+  SplitMember,
+  SplitMethod,
+} from "@/types";
 
 /** Local-only sentinel id for "me" inside an in-progress (not yet saved) draft split. */
 const DRAFT_SELF_ID = "me";
+
+/** Guards against subscribing more than once per page load (hydrate() can be called from multiple mount points). */
+let notificationsUnsubscribe: (() => void) | null = null;
 
 interface AppState {
   initialized: boolean;
@@ -27,10 +45,15 @@ interface AppState {
   user: CurrentUser | null;
   friends: Friend[];
   splits: Split[];
+  notifications: AppNotification[];
   draft: DraftScan;
   darkMode: boolean;
 
   hydrate: () => Promise<CurrentUser | null>;
+
+  markNotificationRead: (id: string) => Promise<void>;
+  markAllNotificationsRead: () => Promise<void>;
+  nudgeMember: (splitMemberId: string) => Promise<void>;
 
   setUserName: (firstName: string, lastName: string) => Promise<void>;
   updateUserPayment: (
@@ -75,6 +98,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   user: null,
   friends: [],
   splits: [],
+  notifications: [],
   draft: emptyDraft,
   darkMode: false,
 
@@ -86,13 +110,49 @@ export const useAppStore = create<AppState>((set, get) => ({
       const user = await fetchProfile(userId);
       const friends = await fetchFriends();
       const friendsById = new Map(friends.map((f) => [f.id, f]));
-      const splits = await fetchSplits(friendsById, user.avatarColor);
+      const splits = await fetchSplits(friendsById, { id: user.id, avatarColor: user.avatarColor });
       set({ user, friends, splits, initialized: true, loading: false });
+
+      // Notifications are best-effort: if this table/migration isn't in place yet
+      // (or the fetch fails for any other reason), the rest of the app must still
+      // load normally rather than getting stuck initializing forever.
+      fetchNotificationsQuery()
+        .then((notifications) => set({ notifications }))
+        .catch((err) => console.error("Failed to load notifications:", err));
+
+      if (!notificationsUnsubscribe) {
+        try {
+          notificationsUnsubscribe = subscribeToNotifications(userId, (n) => {
+            set((state) => ({ notifications: [n, ...state.notifications] }));
+          });
+        } catch (err) {
+          console.error("Failed to subscribe to notifications:", err);
+        }
+      }
+
       return user;
     } catch (err) {
       set({ loading: false, error: err instanceof Error ? err.message : "Failed to load your data." });
       return null;
     }
+  },
+
+  markNotificationRead: async (id) => {
+    set((state) => ({
+      notifications: state.notifications.map((n) => (n.id === id ? { ...n, read: true } : n)),
+    }));
+    await markNotificationReadQuery(id);
+  },
+
+  markAllNotificationsRead: async () => {
+    const userId = get().user?.id;
+    if (!userId) return;
+    set((state) => ({ notifications: state.notifications.map((n) => ({ ...n, read: true })) }));
+    await markAllNotificationsReadQuery(userId);
+  },
+
+  nudgeMember: async (splitMemberId) => {
+    await nudgeSplitMember(splitMemberId);
   },
 
   setUserName: async (firstName, lastName) => {
@@ -211,8 +271,11 @@ export const useAppStore = create<AppState>((set, get) => ({
     });
 
     const friendsById = new Map(get().friends.map((f) => [f.id, f]));
-    const myAvatarColor = get().user?.avatarColor ?? "#192F4D";
-    const splits = await fetchSplits(friendsById, myAvatarColor);
+    const currentUser = get().user;
+    const splits = await fetchSplits(friendsById, {
+      id: userId,
+      avatarColor: currentUser?.avatarColor ?? "#192F4D",
+    });
     set({ splits });
 
     return newSplitId;

@@ -63,12 +63,13 @@ export interface ItemAssignment {
 
 export interface Split {
   id: string;
+  ownerId: string;
   receipt: Receipt;
   method: SplitMethod;
   members: SplitMember[];
   assignments: ItemAssignment[];
   createdAt: string;
-  /** null means the current user (split owner) is the payee; otherwise a connected friend's user id */
+  /** null means the split's owner is the payee; otherwise a connected friend's user id */
   payeeUserId: string | null;
 }
 
@@ -86,4 +87,16 @@ export interface DraftScan {
   method: SplitMethod | null;
   members: SplitMember[];
   assignments: ItemAssignment[];
+}
+
+export type NotificationType = "split_added" | "member_paid" | "marked_received" | "nudge";
+
+export interface AppNotification {
+  id: string;
+  type: NotificationType;
+  splitId: string | null;
+  title: string;
+  body: string;
+  read: boolean;
+  createdAt: string;
 }

@@ -19,12 +19,14 @@ function getGreeting() {
 export default function HomePage() {
   const user = useAppStore((s) => s.user);
   const splits = useAppStore((s) => s.splits);
+  const notifications = useAppStore((s) => s.notifications);
+  const unreadCount = notifications.filter((n) => !n.read).length;
 
-  const balance = useMemo(() => getUserBalance(splits), [splits]);
   const recentSplits = useMemo(() => [...splits].sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1)).slice(0, 5), [splits]);
 
   if (!user) return null;
   const displayName = user.firstName || "there";
+  const balance = getUserBalance(splits, user.id);
 
   return (
     <div className="flex flex-col pb-8">
@@ -34,10 +36,13 @@ export default function HomePage() {
           <h1 className="font-primary text-xl font-bold tracking-brand text-navy dark:text-white">{displayName}</h1>
         </div>
         <div className="flex items-center gap-3">
-          <button className="relative flex h-10 w-10 items-center justify-center rounded-2xl bg-cream dark:bg-surface-dark border-2 border-navy/10 dark:border-white/10">
+          <Link
+            href="/notifications"
+            className="relative flex h-10 w-10 items-center justify-center rounded-2xl bg-cream dark:bg-surface-dark border-2 border-navy/10 dark:border-white/10"
+          >
             <Bell size={18} className="text-navy dark:text-white" />
-            <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-orange" />
-          </button>
+            {unreadCount > 0 && <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-orange" />}
+          </Link>
           <Link href="/profile">
             <Avatar name={displayName} color="#192F4D" size="sm" />
           </Link>

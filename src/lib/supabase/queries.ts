@@ -1,6 +1,16 @@
 import { createClient } from "@/lib/supabase/client";
 import { colorForName } from "@/lib/utils";
-import type { CurrentUser, Friend, ItemAssignment, Receipt, Split, SplitMember, SplitMethod } from "@/types";
+import type {
+  AppNotification,
+  CurrentUser,
+  Friend,
+  ItemAssignment,
+  NotificationType,
+  Receipt,
+  Split,
+  SplitMember,
+  SplitMethod,
+} from "@/types";
 
 const supabase = createClient();
 
@@ -208,6 +218,7 @@ export async function removeFriendConnection(myId: string, theirId: string): Pro
 
 const SPLIT_SELECT = `
   id, method, payee_user_id, created_at,
+  owner:profiles!splits_owner_id_fkey ( id, first_name, last_name, avatar_color ),
   receipt:receipts (
     id, establishment, receipt_date, subtotal, vat_rate, service_charge_rate, vat, service_charge, total,
     items:receipt_items ( id, name, price, quantity )
@@ -234,6 +245,7 @@ interface RawSplitRow {
   method: SplitMethod;
   payee_user_id: string | null;
   created_at: string;
+  owner: { id: string; first_name: string; last_name: string; avatar_color: string };
   receipt: RawReceiptRow;
   members: {
     id: string;
@@ -246,7 +258,13 @@ interface RawSplitRow {
   assignments: { id: string; receipt_item_id: string; split_member_id: string }[];
 }
 
-function mapSplit(row: RawSplitRow, friendsById: Map<string, Friend>, myAvatarColor: string): Split {
+/**
+ * A split can now be viewed by anyone in it, not just its owner (e.g. tapping a
+ * notification into a split a friend created). "me" in the raw data always means
+ * the split's *owner* — who that actually is relative to the *viewer* has to be
+ * resolved here rather than trusted from the stored label.
+ */
+function mapSplit(row: RawSplitRow, friendsById: Map<string, Friend>, viewer: { id: string; avatarColor: string }): Split {
   const receipt: Receipt = {
     id: row.receipt.id,
     establishment: row.receipt.establishment,
@@ -262,24 +280,26 @@ function mapSplit(row: RawSplitRow, friendsById: Map<string, Friend>, myAvatarCo
 
   const members: SplitMember[] = row.members.map((m) => {
     if (m.member_type === "me") {
+      const isViewer = row.owner.id === viewer.id;
       return {
         id: m.id,
-        name: "You",
-        avatarColor: myAvatarColor,
+        name: isViewer ? "You" : `${row.owner.first_name} ${row.owner.last_name}`.trim(),
+        avatarColor: row.owner.avatar_color,
         isGuest: false,
-        isCurrentUser: true,
+        isCurrentUser: isViewer,
         status: m.status,
         paidAt: m.paid_at ?? undefined,
       };
     }
     if (m.member_type === "friend") {
+      const isViewer = m.user_id === viewer.id;
       const friend = m.user_id ? friendsById.get(m.user_id) : undefined;
       return {
         id: m.id,
-        name: friend?.name ?? "Unknown Friend",
-        avatarColor: friend?.avatarColor ?? colorForName(friend?.name ?? m.id),
+        name: isViewer ? "You" : (friend?.name ?? "Unknown Friend"),
+        avatarColor: isViewer ? viewer.avatarColor : (friend?.avatarColor ?? colorForName(friend?.name ?? m.id)),
         isGuest: false,
-        isCurrentUser: false,
+        isCurrentUser: isViewer,
         status: m.status,
         paidAt: m.paid_at ?? undefined,
       };
@@ -309,6 +329,7 @@ function mapSplit(row: RawSplitRow, friendsById: Map<string, Friend>, myAvatarCo
 
   return {
     id: row.id,
+    ownerId: row.owner.id,
     receipt,
     method: row.method,
     members,
@@ -318,13 +339,16 @@ function mapSplit(row: RawSplitRow, friendsById: Map<string, Friend>, myAvatarCo
   };
 }
 
-export async function fetchSplits(friendsById: Map<string, Friend>, myAvatarColor: string): Promise<Split[]> {
+export async function fetchSplits(
+  friendsById: Map<string, Friend>,
+  viewer: { id: string; avatarColor: string }
+): Promise<Split[]> {
   const { data, error } = await supabase
     .from("splits")
     .select(SPLIT_SELECT)
     .order("created_at", { ascending: false });
   if (error) throw error;
-  return ((data ?? []) as unknown as RawSplitRow[]).map((row) => mapSplit(row, friendsById, myAvatarColor));
+  return ((data ?? []) as unknown as RawSplitRow[]).map((row) => mapSplit(row, friendsById, viewer));
 }
 
 export async function createSplit(params: {
@@ -406,9 +430,77 @@ export async function createSplit(params: {
 }
 
 export async function markSplitMemberPaid(splitMemberId: string): Promise<void> {
-  const { error } = await supabase
-    .from("split_members")
-    .update({ status: "paid", paid_at: new Date().toISOString() })
-    .eq("id", splitMemberId);
+  const { error } = await supabase.rpc("mark_split_member_paid", { p_split_member_id: splitMemberId });
   if (error) throw error;
+}
+
+export async function nudgeSplitMember(splitMemberId: string): Promise<void> {
+  const { error } = await supabase.rpc("nudge_split_member", { p_split_member_id: splitMemberId });
+  if (error) throw error;
+}
+
+// ─────────────────────────────────────────────────────────────
+// notifications
+// ─────────────────────────────────────────────────────────────
+
+interface NotificationRow {
+  id: string;
+  type: NotificationType;
+  split_id: string | null;
+  title: string;
+  body: string;
+  read: boolean;
+  created_at: string;
+}
+
+function mapNotification(row: NotificationRow): AppNotification {
+  return {
+    id: row.id,
+    type: row.type,
+    splitId: row.split_id,
+    title: row.title,
+    body: row.body,
+    read: row.read,
+    createdAt: row.created_at,
+  };
+}
+
+export async function fetchNotifications(): Promise<AppNotification[]> {
+  const { data, error } = await supabase
+    .from("notifications")
+    .select("id, type, split_id, title, body, read, created_at")
+    .order("created_at", { ascending: false })
+    .limit(50);
+  if (error) throw error;
+  return ((data ?? []) as NotificationRow[]).map(mapNotification);
+}
+
+export async function markNotificationRead(id: string): Promise<void> {
+  const { error } = await supabase.from("notifications").update({ read: true }).eq("id", id);
+  if (error) throw error;
+}
+
+export async function markAllNotificationsRead(userId: string): Promise<void> {
+  const { error } = await supabase
+    .from("notifications")
+    .update({ read: true })
+    .eq("user_id", userId)
+    .eq("read", false);
+  if (error) throw error;
+}
+
+/** Subscribes to new notifications for this user in real time. Returns an unsubscribe function. */
+export function subscribeToNotifications(userId: string, onInsert: (n: AppNotification) => void): () => void {
+  const channel = supabase
+    .channel(`notifications:${userId}`)
+    .on(
+      "postgres_changes",
+      { event: "INSERT", schema: "public", table: "notifications", filter: `user_id=eq.${userId}` },
+      (payload) => onInsert(mapNotification(payload.new as NotificationRow))
+    )
+    .subscribe();
+
+  return () => {
+    supabase.removeChannel(channel);
+  };
 }
