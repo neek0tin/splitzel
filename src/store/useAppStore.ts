@@ -19,6 +19,8 @@ import {
   updateProfile,
   type FriendCodeMatch,
 } from "@/lib/supabase/queries";
+import { computeReceiptTotals } from "@/lib/splitEngine";
+import { genId } from "@/lib/utils";
 import type {
   AppNotification,
   CurrentUser,
@@ -26,6 +28,7 @@ import type {
   Friend,
   ItemAssignment,
   Receipt,
+  ReceiptItem,
   Split,
   SplitMember,
   SplitMethod,
@@ -73,6 +76,10 @@ interface AppState {
   removeFriend: (theirId: string) => Promise<void>;
 
   startDraftFromReceipt: (receipt: Receipt) => void;
+  setDraftEstablishment: (name: string) => void;
+  addDraftItem: (item: { name: string; price: number; quantity: number }) => void;
+  updateDraftItem: (itemId: string, patch: Partial<{ name: string; price: number; quantity: number }>) => void;
+  removeDraftItem: (itemId: string) => void;
   setDraftMethod: (method: SplitMethod) => void;
   addDraftMember: (member: SplitMember) => void;
   removeDraftMember: (memberId: string) => void;
@@ -210,6 +217,48 @@ export const useAppStore = create<AppState>((set, get) => ({
         assignments: receipt.items.map((i) => ({ itemId: i.id, memberIds: [] })),
       },
     })),
+
+  setDraftEstablishment: (name) =>
+    set((state) => ({
+      draft: state.draft.receipt ? { ...state.draft, receipt: { ...state.draft.receipt, establishment: name } } : state.draft,
+    })),
+
+  addDraftItem: (item) =>
+    set((state) => {
+      if (!state.draft.receipt) return state;
+      const newItem: ReceiptItem = { id: genId("item"), ...item };
+      const items = [...state.draft.receipt.items, newItem];
+      const totals = computeReceiptTotals(items, state.draft.receipt.vatRate, state.draft.receipt.serviceChargeRate);
+      return {
+        draft: {
+          ...state.draft,
+          receipt: { ...state.draft.receipt, items, ...totals },
+          assignments: [...state.draft.assignments, { itemId: newItem.id, memberIds: [] }],
+        },
+      };
+    }),
+
+  updateDraftItem: (itemId, patch) =>
+    set((state) => {
+      if (!state.draft.receipt) return state;
+      const items = state.draft.receipt.items.map((i) => (i.id === itemId ? { ...i, ...patch } : i));
+      const totals = computeReceiptTotals(items, state.draft.receipt.vatRate, state.draft.receipt.serviceChargeRate);
+      return { draft: { ...state.draft, receipt: { ...state.draft.receipt, items, ...totals } } };
+    }),
+
+  removeDraftItem: (itemId) =>
+    set((state) => {
+      if (!state.draft.receipt) return state;
+      const items = state.draft.receipt.items.filter((i) => i.id !== itemId);
+      const totals = computeReceiptTotals(items, state.draft.receipt.vatRate, state.draft.receipt.serviceChargeRate);
+      return {
+        draft: {
+          ...state.draft,
+          receipt: { ...state.draft.receipt, items, ...totals },
+          assignments: state.draft.assignments.filter((a) => a.itemId !== itemId),
+        },
+      };
+    }),
 
   setDraftMethod: (method) => set((state) => ({ draft: { ...state.draft, method } })),
 
