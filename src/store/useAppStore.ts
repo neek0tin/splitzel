@@ -15,6 +15,7 @@ import {
   markSplitMemberPaid,
   nudgeSplitMember,
   removeFriendConnection,
+  signOut,
   subscribeToNotifications,
   updateProfile,
   type FriendCodeMatch,
@@ -53,6 +54,7 @@ interface AppState {
   darkMode: boolean;
 
   hydrate: () => Promise<CurrentUser | null>;
+  logOut: () => Promise<void>;
 
   markNotificationRead: (id: string) => Promise<void>;
   markAllNotificationsRead: () => Promise<void>;
@@ -142,6 +144,23 @@ export const useAppStore = create<AppState>((set, get) => ({
       set({ loading: false, error: err instanceof Error ? err.message : "Failed to load your data." });
       return null;
     }
+  },
+
+  logOut: async () => {
+    notificationsUnsubscribe?.();
+    notificationsUnsubscribe = null;
+    await signOut();
+    set({
+      initialized: false,
+      loading: false,
+      error: null,
+      user: null,
+      friends: [],
+      splits: [],
+      notifications: [],
+      draft: emptyDraft,
+      // darkMode is a device preference, not part of the account — leave it as-is
+    });
   },
 
   markNotificationRead: async (id) => {

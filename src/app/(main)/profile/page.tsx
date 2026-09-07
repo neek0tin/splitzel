@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { ChevronRight, LogOut, Moon, Shield, Smartphone, Wallet } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
 import { Avatar } from "@/components/ui/Avatar";
@@ -11,10 +12,12 @@ import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 
 export default function ProfilePage() {
+  const router = useRouter();
   const user = useAppStore((s) => s.user);
   const updateUserPayment = useAppStore((s) => s.updateUserPayment);
   const darkMode = useAppStore((s) => s.darkMode);
   const toggleDarkMode = useAppStore((s) => s.toggleDarkMode);
+  const logOut = useAppStore((s) => s.logOut);
 
   const [paymentOpen, setPaymentOpen] = useState(false);
   const [gcashNumber, setGcashNumber] = useState("");
@@ -23,6 +26,7 @@ export default function ProfilePage() {
   const [bankAccountName, setBankAccountName] = useState("");
   const [hasQr, setHasQr] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
 
   if (!user) return null;
   const fullName = `${user.firstName} ${user.lastName}`.trim() || "Splitzel User";
@@ -43,6 +47,16 @@ export default function ProfilePage() {
       setPaymentOpen(false);
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleLogOut = async () => {
+    setLoggingOut(true);
+    try {
+      await logOut();
+      router.push("/register");
+    } catch {
+      setLoggingOut(false);
     }
   };
 
@@ -94,9 +108,13 @@ export default function ProfilePage() {
           </Card>
         </div>
 
-        <button className="mt-8 flex w-full items-center justify-center gap-2 rounded-2xl border-2 border-orange/40 py-3 text-sm font-semibold text-orange font-secondary active:scale-95 transition-transform">
+        <button
+          onClick={handleLogOut}
+          disabled={loggingOut}
+          className="mt-8 flex w-full items-center justify-center gap-2 rounded-2xl border-2 border-orange/40 py-3 text-sm font-semibold text-orange font-secondary active:scale-95 transition-transform disabled:opacity-50"
+        >
           <LogOut size={16} />
-          Log Out
+          {loggingOut ? "Logging Out..." : "Log Out"}
         </button>
       </div>
 

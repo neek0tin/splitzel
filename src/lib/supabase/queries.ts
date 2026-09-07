@@ -30,6 +30,11 @@ export async function ensureSession(): Promise<string> {
   return signInData.user.id;
 }
 
+export async function signOut(): Promise<void> {
+  const { error } = await supabase.auth.signOut();
+  if (error) throw error;
+}
+
 export type OAuthProvider = "google" | "facebook";
 
 /**
