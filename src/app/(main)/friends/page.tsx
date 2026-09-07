@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Check, Copy, Share2, UserPlus, X } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Camera, Check, Copy, Share2, UserPlus, X } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
 import { Avatar } from "@/components/ui/Avatar";
 import { Card } from "@/components/ui/Card";
@@ -10,16 +11,32 @@ import { Input } from "@/components/ui/Input";
 import { Modal } from "@/components/ui/Modal";
 import { MockQRCode } from "@/components/ui/MockQRCode";
 import { RealQRCode } from "@/components/ui/RealQRCode";
+import { QRScannerModal } from "@/components/QRScannerModal";
 import type { FriendCodeMatch } from "@/lib/supabase/queries";
 import type { Friend } from "@/types";
 
+/** Pulls a friend code out of a scanned invite link (or a raw code, just in case). */
+function parseInviteCode(scanned: string): string | null {
+  try {
+    const url = new URL(scanned);
+    const parts = url.pathname.split("/").filter(Boolean);
+    if (parts[0] === "add-friend" && parts[1]) return parts[1].toUpperCase();
+    return null;
+  } catch {
+    const trimmed = scanned.trim().toUpperCase();
+    return /^[A-Z0-9]{4,10}$/.test(trimmed) ? trimmed : null;
+  }
+}
+
 export default function FriendsPage() {
+  const router = useRouter();
   const user = useAppStore((s) => s.user);
   const friends = useAppStore((s) => s.friends);
   const findFriendByCode = useAppStore((s) => s.findFriendByCode);
   const connectFriend = useAppStore((s) => s.connectFriend);
 
   const [addOpen, setAddOpen] = useState(false);
+  const [scanOpen, setScanOpen] = useState(false);
   const [qrFriend, setQrFriend] = useState<Friend | null>(null);
   const [copied, setCopied] = useState(false);
 
@@ -89,6 +106,13 @@ export default function FriendsPage() {
     } else {
       handleCopyCode();
     }
+  };
+
+  const handleScan = (scanned: string) => {
+    setScanOpen(false);
+    const scannedCode = parseInviteCode(scanned);
+    if (!scannedCode) return;
+    router.push(`/add-friend/${scannedCode}`);
   };
 
   return (
@@ -172,6 +196,20 @@ export default function FriendsPage() {
         title="Add Friend"
       >
         <div className="flex flex-col items-center gap-5 pb-2">
+          <button
+            onClick={() => setScanOpen(true)}
+            className="flex w-full items-center justify-center gap-2 rounded-2xl border-2 border-navy/15 dark:border-white/20 py-3 text-sm font-semibold text-navy dark:text-white font-secondary active:scale-95 transition-transform"
+          >
+            <Camera size={16} />
+            Scan Their QR Code
+          </button>
+
+          <div className="flex w-full items-center gap-3 text-xs text-navy/40 dark:text-white/40 font-secondary">
+            <div className="h-px flex-1 bg-navy/10 dark:bg-white/10" />
+            or
+            <div className="h-px flex-1 bg-navy/10 dark:bg-white/10" />
+          </div>
+
           <div className="w-full">
             <label className="text-sm font-semibold text-navy/70 dark:text-white/70 font-secondary">
               Enter their friend code
@@ -239,6 +277,8 @@ export default function FriendsPage() {
           </div>
         )}
       </Modal>
+
+      {scanOpen && <QRScannerModal onClose={() => setScanOpen(false)} onScan={handleScan} />}
     </div>
   );
 }
