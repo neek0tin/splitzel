@@ -184,7 +184,10 @@ export const useAppStore = create<AppState>((set, get) => ({
       ownerId: userId,
       receipt: draft.receipt,
       method: draft.method,
-      members: draft.members,
+      // the split's creator has already paid the bill in full up front, so their
+      // own share starts out settled — everyone else owes *them*, not the other
+      // way around.
+      members: draft.members.map((m) => (m.isCurrentUser ? { ...m, status: "paid" as const } : m)),
       assignments,
       payeeFriendId: null,
     });

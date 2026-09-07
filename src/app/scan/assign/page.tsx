@@ -14,6 +14,7 @@ import { colorForName, formatCurrency, genId } from "@/lib/utils";
 
 export default function AssignMembersPage() {
   const router = useRouter();
+  const hydrate = useAppStore((s) => s.hydrate);
   const draft = useAppStore((s) => s.draft);
   const friends = useAppStore((s) => s.friends);
   const addDraftMember = useAppStore((s) => s.addDraftMember);
@@ -26,6 +27,10 @@ export default function AssignMembersPage() {
   const [guestName, setGuestName] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    hydrate();
+  }, [hydrate]);
 
   useEffect(() => {
     if (!draft.receipt || !draft.method) router.replace("/scan");
