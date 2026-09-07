@@ -20,6 +20,45 @@ export async function ensureSession(): Promise<string> {
   return signInData.user.id;
 }
 
+export type OAuthProvider = "google" | "apple";
+
+/**
+ * Starts a real OAuth sign-in and redirects the browser to the provider.
+ * If the current session is still anonymous, this links the OAuth identity
+ * to it (so the anonymous account's data carries over) instead of creating
+ * a brand new user. If that identity already belongs to a different
+ * Splitzel account, it falls back to a normal sign-in to that account.
+ */
+export async function signInWithProvider(provider: OAuthProvider, redirectTo: string): Promise<void> {
+  const { data } = await supabase.auth.getSession();
+
+  if (data.session?.user?.is_anonymous) {
+    const { error } = await supabase.auth.linkIdentity({ provider, options: { redirectTo } });
+    if (!error) return;
+  }
+
+  const { error } = await supabase.auth.signInWithOAuth({ provider, options: { redirectTo } });
+  if (error) throw error;
+}
+
+/** Pulls a name hint out of an OAuth provider's profile data (e.g. Google), if any. */
+export async function fetchNameHint(): Promise<{ firstName: string; lastName: string } | null> {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return null;
+
+  const meta = user.user_metadata ?? {};
+  const fullName: string = meta.full_name ?? meta.name ?? "";
+  const [fallbackFirst, ...fallbackRest] = fullName.trim().split(/\s+/).filter(Boolean);
+
+  const firstName = meta.given_name ?? fallbackFirst ?? "";
+  const lastName = meta.family_name ?? fallbackRest.join(" ") ?? "";
+
+  if (!firstName && !lastName) return null;
+  return { firstName, lastName };
+}
+
 // ─────────────────────────────────────────────────────────────
 // profile
 // ─────────────────────────────────────────────────────────────

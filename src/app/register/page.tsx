@@ -1,9 +1,11 @@
 "use client";
 
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Receipt, ShieldCheck, Users } from "lucide-react";
 import { SplitzelLogo } from "@/components/ui/Logo";
 import { Button } from "@/components/ui/Button";
+import { signInWithProvider } from "@/lib/supabase/queries";
 
 const features = [
   { icon: Receipt, text: "Scan any receipt and detect items in seconds" },
@@ -32,6 +34,21 @@ function AppleIcon() {
 
 export default function RegisterPage() {
   const router = useRouter();
+  const [connecting, setConnecting] = useState<"google" | "apple" | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  // Real Google OAuth. Apple isn't wired up yet (needs a paid Apple
+  // Developer account), so it still falls back to the anonymous-session path.
+  const handleGoogle = async () => {
+    setConnecting("google");
+    setError(null);
+    try {
+      await signInWithProvider("google", `${window.location.origin}/auth/callback`);
+    } catch {
+      setError("Couldn't connect to Google. Please try again.");
+      setConnecting(null);
+    }
+  };
 
   const handleContinue = () => {
     router.push("/personalize");
@@ -63,10 +80,25 @@ export default function RegisterPage() {
       </div>
 
       <div className="flex flex-col gap-3">
-        <Button variant="outline" fullWidth size="lg" icon={<GoogleIcon />} onClick={handleContinue}>
-          Continue with Google
+        {error && <p className="text-center text-sm text-orange font-secondary">{error}</p>}
+        <Button
+          variant="outline"
+          fullWidth
+          size="lg"
+          icon={<GoogleIcon />}
+          onClick={handleGoogle}
+          disabled={connecting !== null}
+        >
+          {connecting === "google" ? "Connecting..." : "Continue with Google"}
         </Button>
-        <Button variant="primary" fullWidth size="lg" icon={<AppleIcon />} onClick={handleContinue}>
+        <Button
+          variant="primary"
+          fullWidth
+          size="lg"
+          icon={<AppleIcon />}
+          onClick={handleContinue}
+          disabled={connecting !== null}
+        >
           Continue with Apple
         </Button>
         <p className="mt-2 text-center text-xs text-navy/40 dark:text-white/40 font-secondary">

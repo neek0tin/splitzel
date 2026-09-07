@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { PretzelIcon } from "@/components/ui/Logo";
 import { useAppStore } from "@/store/useAppStore";
+import { fetchNameHint } from "@/lib/supabase/queries";
 
 export default function PersonalizePage() {
   const router = useRouter();
@@ -14,6 +15,16 @@ export default function PersonalizePage() {
   const [lastName, setLastName] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // If they just signed in with a real provider (e.g. Google), it already
+  // knows their name — no need to make them type it again.
+  useEffect(() => {
+    fetchNameHint().then((hint) => {
+      if (!hint) return;
+      setFirstName((prev) => prev || hint.firstName);
+      setLastName((prev) => prev || hint.lastName);
+    });
+  }, []);
 
   const canContinue = firstName.trim().length > 0 && lastName.trim().length > 0 && !submitting;
 
