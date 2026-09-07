@@ -101,11 +101,16 @@ export default function FriendsPage() {
           </Button>
         </div>
 
-        <Card outlined className="mt-5">
-          <p className="text-xs font-bold uppercase tracking-wide text-navy/40 dark:text-white/40 font-secondary">
+        <Card outlined className="mt-5 flex flex-col items-center text-center">
+          <p className="self-start text-xs font-bold uppercase tracking-wide text-navy/40 dark:text-white/40 font-secondary">
             Your Friend Code
           </p>
-          <div className="mt-2 flex items-center justify-between gap-3">
+
+          <div className="mt-3">
+            <RealQRCode value={inviteUrl} size={160} />
+          </div>
+
+          <div className="mt-4 flex items-center justify-center gap-3">
             <span className="font-primary text-2xl font-extrabold tracking-brand text-navy dark:text-white">
               {user.friendCode}
             </span>
@@ -125,7 +130,7 @@ export default function FriendsPage() {
             </div>
           </div>
           <p className="mt-1 text-xs text-navy/50 dark:text-white/50 font-secondary">
-            Share this code, or let a friend scan your QR below.
+            Let a friend scan this, or share your code with them.
           </p>
         </Card>
 
@@ -167,8 +172,6 @@ export default function FriendsPage() {
         title="Add Friend"
       >
         <div className="flex flex-col items-center gap-5 pb-2">
-          <RealQRCode value={inviteUrl} size={160} />
-
           <div className="w-full">
             <label className="text-sm font-semibold text-navy/70 dark:text-white/70 font-secondary">
               Enter their friend code
