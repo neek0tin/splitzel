@@ -2,15 +2,17 @@
 
 import { create } from "zustand";
 import {
+  connectFriend as connectFriendRow,
   createSplit,
-  deleteFriend as deleteFriendRow,
   ensureSession,
   fetchFriends,
   fetchProfile,
   fetchSplits,
-  insertFriend,
+  findFriendByCode as findFriendByCodeQuery,
   markSplitMemberPaid,
+  removeFriendConnection,
   updateProfile,
+  type FriendCodeMatch,
 } from "@/lib/supabase/queries";
 import type { CurrentUser, DraftScan, Friend, ItemAssignment, Receipt, Split, SplitMember, SplitMethod } from "@/types";
 
@@ -31,11 +33,21 @@ interface AppState {
   hydrate: () => Promise<CurrentUser | null>;
 
   setUserName: (firstName: string, lastName: string) => Promise<void>;
-  updateUserPayment: (payment: Partial<{ gcashNumber: string; gcashName: string }>) => Promise<void>;
+  updateUserPayment: (
+    payment: Partial<{
+      gcashNumber: string;
+      gcashName: string;
+      bankName: string;
+      bankAccountNumber: string;
+      bankAccountName: string;
+      hasQr: boolean;
+    }>
+  ) => Promise<void>;
   toggleDarkMode: () => void;
 
-  addFriend: (friend: Omit<Friend, "id">) => Promise<void>;
-  removeFriend: (friendId: string) => Promise<void>;
+  findFriendByCode: (code: string) => Promise<FriendCodeMatch | null>;
+  connectFriend: (theirId: string) => Promise<void>;
+  removeFriend: (theirId: string) => Promise<void>;
 
   startDraftFromReceipt: (receipt: Receipt) => void;
   setDraftMethod: (method: SplitMethod) => void;
@@ -103,15 +115,21 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   toggleDarkMode: () => set((state) => ({ darkMode: !state.darkMode })),
 
-  addFriend: async (friend) => {
-    const userId = await ensureSession();
-    const created = await insertFriend(userId, friend);
-    set((state) => ({ friends: [...state.friends, created] }));
+  findFriendByCode: async (code) => {
+    return findFriendByCodeQuery(code);
   },
 
-  removeFriend: async (friendId) => {
-    await deleteFriendRow(friendId);
-    set((state) => ({ friends: state.friends.filter((f) => f.id !== friendId) }));
+  connectFriend: async (theirId) => {
+    const userId = await ensureSession();
+    await connectFriendRow(userId, theirId);
+    const friends = await fetchFriends();
+    set({ friends });
+  },
+
+  removeFriend: async (theirId) => {
+    const userId = await ensureSession();
+    await removeFriendConnection(userId, theirId);
+    set((state) => ({ friends: state.friends.filter((f) => f.id !== theirId) }));
   },
 
   startDraftFromReceipt: (receipt) =>
@@ -189,7 +207,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       // way around.
       members: draft.members.map((m) => (m.isCurrentUser ? { ...m, status: "paid" as const } : m)),
       assignments,
-      payeeFriendId: null,
+      payeeUserId: null,
     });
 
     const friendsById = new Map(get().friends.map((f) => [f.id, f]));

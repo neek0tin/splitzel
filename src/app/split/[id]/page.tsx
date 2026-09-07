@@ -59,9 +59,9 @@ export default function SplitDetailPage({ params }: { params: Promise<{ id: stri
   const status = getSplitStatus(split);
   const { paid, total } = getPaidCount(split);
   const overdueDays = getOverdueDays(split);
-  const isPayee = split.payeeFriendId === null;
+  const isPayee = split.payeeUserId === null;
   const me = split.members.find((m) => m.isCurrentUser);
-  const payee = friends.find((f) => f.id === split.payeeFriendId) ?? null;
+  const payee = friends.find((f) => f.id === split.payeeUserId) ?? null;
 
   return (
     <div className="flex flex-1 flex-col">

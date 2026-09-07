@@ -70,6 +70,7 @@ interface ProfileRow {
   first_name: string;
   last_name: string;
   avatar_color: string;
+  friend_code: string;
   gcash_number: string | null;
   gcash_name: string | null;
   bank_name: string | null;
@@ -84,6 +85,7 @@ function mapProfile(row: ProfileRow): CurrentUser {
     firstName: row.first_name,
     lastName: row.last_name,
     avatarColor: row.avatar_color,
+    friendCode: row.friend_code,
     payment: {
       gcashNumber: row.gcash_number ?? undefined,
       gcashName: row.gcash_name ?? undefined,
@@ -103,7 +105,16 @@ export async function fetchProfile(userId: string): Promise<CurrentUser> {
 
 export async function updateProfile(
   userId: string,
-  patch: Partial<{ firstName: string; lastName: string; gcashNumber: string; gcashName: string }>
+  patch: Partial<{
+    firstName: string;
+    lastName: string;
+    gcashNumber: string;
+    gcashName: string;
+    bankName: string;
+    bankAccountNumber: string;
+    bankAccountName: string;
+    hasQr: boolean;
+  }>
 ): Promise<void> {
   const { error } = await supabase
     .from("profiles")
@@ -112,19 +123,23 @@ export async function updateProfile(
       ...(patch.lastName !== undefined && { last_name: patch.lastName }),
       ...(patch.gcashNumber !== undefined && { gcash_number: patch.gcashNumber }),
       ...(patch.gcashName !== undefined && { gcash_name: patch.gcashName }),
+      ...(patch.bankName !== undefined && { bank_name: patch.bankName }),
+      ...(patch.bankAccountNumber !== undefined && { bank_account_number: patch.bankAccountNumber }),
+      ...(patch.bankAccountName !== undefined && { bank_account_name: patch.bankAccountName }),
+      ...(patch.hasQr !== undefined && { has_qr: patch.hasQr }),
     })
     .eq("id", userId);
   if (error) throw error;
 }
 
 // ─────────────────────────────────────────────────────────────
-// friends
+// friends (real, bidirectional connections between accounts)
 // ─────────────────────────────────────────────────────────────
 
 interface FriendRow {
   id: string;
-  name: string;
-  phone: string | null;
+  first_name: string;
+  last_name: string;
   avatar_color: string;
   gcash_number: string | null;
   gcash_name: string | null;
@@ -137,8 +152,7 @@ interface FriendRow {
 function mapFriend(row: FriendRow): Friend {
   return {
     id: row.id,
-    name: row.name,
-    phone: row.phone ?? "",
+    name: `${row.first_name} ${row.last_name}`.trim(),
     avatarColor: row.avatar_color,
     payment: {
       gcashNumber: row.gcash_number ?? undefined,
@@ -152,34 +166,39 @@ function mapFriend(row: FriendRow): Friend {
 }
 
 export async function fetchFriends(): Promise<Friend[]> {
-  const { data, error } = await supabase.from("friends").select("*").order("created_at", { ascending: true });
+  const { data, error } = await supabase.rpc("list_my_friends");
   if (error) throw error;
-  return (data ?? []).map(mapFriend);
+  return ((data ?? []) as FriendRow[]).map(mapFriend);
 }
 
-export async function insertFriend(ownerId: string, friend: Omit<Friend, "id">): Promise<Friend> {
-  const { data, error } = await supabase
-    .from("friends")
-    .insert({
-      owner_id: ownerId,
-      name: friend.name,
-      phone: friend.phone || null,
-      avatar_color: friend.avatarColor,
-      gcash_number: friend.payment.gcashNumber ?? null,
-      gcash_name: friend.payment.gcashName ?? null,
-      bank_name: friend.payment.bankName ?? null,
-      bank_account_number: friend.payment.bankAccountNumber ?? null,
-      bank_account_name: friend.payment.bankAccountName ?? null,
-      has_qr: friend.payment.hasQr ?? false,
-    })
-    .select()
-    .single();
-  if (error) throw error;
-  return mapFriend(data);
+export interface FriendCodeMatch {
+  id: string;
+  name: string;
+  avatarColor: string;
 }
 
-export async function deleteFriend(friendId: string): Promise<void> {
-  const { error } = await supabase.from("friends").delete().eq("id", friendId);
+/** Looks someone up by their friend code, without connecting yet — for a confirm-before-adding step. */
+export async function findFriendByCode(code: string): Promise<FriendCodeMatch | null> {
+  const { data, error } = await supabase.rpc("find_profile_by_friend_code", { p_code: code.trim() });
+  if (error) throw error;
+  const row = data?.[0] as { id: string; first_name: string; last_name: string; avatar_color: string } | undefined;
+  if (!row) return null;
+  return { id: row.id, name: `${row.first_name} ${row.last_name}`.trim(), avatarColor: row.avatar_color };
+}
+
+/** Creates the (undirected) connection between two accounts. */
+export async function connectFriend(myId: string, theirId: string): Promise<void> {
+  const [user_id_1, user_id_2] = myId < theirId ? [myId, theirId] : [theirId, myId];
+  const { error } = await supabase.from("friend_connections").insert({ user_id_1, user_id_2 });
+  if (error) {
+    if (error.code === "23505") throw new Error("You're already connected with this person.");
+    throw error;
+  }
+}
+
+export async function removeFriendConnection(myId: string, theirId: string): Promise<void> {
+  const [a, b] = myId < theirId ? [myId, theirId] : [theirId, myId];
+  const { error } = await supabase.from("friend_connections").delete().eq("user_id_1", a).eq("user_id_2", b);
   if (error) throw error;
 }
 
@@ -188,12 +207,12 @@ export async function deleteFriend(friendId: string): Promise<void> {
 // ─────────────────────────────────────────────────────────────
 
 const SPLIT_SELECT = `
-  id, method, payee_friend_id, created_at,
+  id, method, payee_user_id, created_at,
   receipt:receipts (
     id, establishment, receipt_date, subtotal, vat_rate, service_charge_rate, vat, service_charge, total,
     items:receipt_items ( id, name, price, quantity )
   ),
-  members:split_members ( id, member_type, friend_id, guest_name, status, paid_at ),
+  members:split_members ( id, member_type, user_id, guest_name, status, paid_at ),
   assignments:split_item_assignments ( id, receipt_item_id, split_member_id )
 `;
 
@@ -213,13 +232,13 @@ interface RawReceiptRow {
 interface RawSplitRow {
   id: string;
   method: SplitMethod;
-  payee_friend_id: string | null;
+  payee_user_id: string | null;
   created_at: string;
   receipt: RawReceiptRow;
   members: {
     id: string;
     member_type: "me" | "friend" | "guest";
-    friend_id: string | null;
+    user_id: string | null;
     guest_name: string | null;
     status: "pending" | "paid";
     paid_at: string | null;
@@ -254,7 +273,7 @@ function mapSplit(row: RawSplitRow, friendsById: Map<string, Friend>, myAvatarCo
       };
     }
     if (m.member_type === "friend") {
-      const friend = m.friend_id ? friendsById.get(m.friend_id) : undefined;
+      const friend = m.user_id ? friendsById.get(m.user_id) : undefined;
       return {
         id: m.id,
         name: friend?.name ?? "Unknown Friend",
@@ -295,7 +314,7 @@ function mapSplit(row: RawSplitRow, friendsById: Map<string, Friend>, myAvatarCo
     members,
     assignments,
     createdAt: row.created_at,
-    payeeFriendId: row.payee_friend_id,
+    payeeUserId: row.payee_user_id,
   };
 }
 
@@ -314,9 +333,9 @@ export async function createSplit(params: {
   method: SplitMethod;
   members: SplitMember[];
   assignments: ItemAssignment[];
-  payeeFriendId: string | null;
+  payeeUserId: string | null;
 }): Promise<string> {
-  const { ownerId, receipt, method, members, assignments, payeeFriendId } = params;
+  const { ownerId, receipt, method, members, assignments, payeeUserId } = params;
 
   const { data: receiptRow, error: receiptErr } = await supabase
     .from("receipts")
@@ -345,7 +364,7 @@ export async function createSplit(params: {
 
   const { data: splitRow, error: splitErr } = await supabase
     .from("splits")
-    .insert({ owner_id: ownerId, receipt_id: receiptRow.id, method, payee_friend_id: payeeFriendId })
+    .insert({ owner_id: ownerId, receipt_id: receiptRow.id, method, payee_user_id: payeeUserId })
     .select()
     .single();
   if (splitErr) throw splitErr;
@@ -356,7 +375,7 @@ export async function createSplit(params: {
       members.map((m) => ({
         split_id: splitRow.id,
         member_type: m.isCurrentUser ? "me" : m.isGuest ? "guest" : "friend",
-        friend_id: !m.isCurrentUser && !m.isGuest ? m.id : null,
+        user_id: !m.isCurrentUser && !m.isGuest ? m.id : null,
         guest_name: m.isGuest ? m.name.replace(/\s*\(Guest\)$/, "") : null,
         status: m.status,
       }))

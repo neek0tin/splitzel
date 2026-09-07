@@ -12,13 +12,14 @@ export interface CurrentUser {
   firstName: string;
   lastName: string;
   avatarColor: string;
+  friendCode: string;
   payment: PaymentInfo;
 }
 
+/** A real, connected Splitzel account — sourced from their own profile, not typed in by you. */
 export interface Friend {
   id: string;
   name: string;
-  phone: string;
   avatarColor: string;
   payment: PaymentInfo;
 }
@@ -67,8 +68,8 @@ export interface Split {
   members: SplitMember[];
   assignments: ItemAssignment[];
   createdAt: string;
-  /** null means the current user (split owner) is the payee; otherwise a friend's id */
-  payeeFriendId: string | null;
+  /** null means the current user (split owner) is the payee; otherwise a connected friend's user id */
+  payeeUserId: string | null;
 }
 
 export interface ShareBreakdown {

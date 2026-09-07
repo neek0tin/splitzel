@@ -38,7 +38,7 @@ export function getUserBalance(splits: Split[]) {
 
   splits.forEach((split) => {
     const shares = getSplitShares(split);
-    const isPayee = split.payeeFriendId === null;
+    const isPayee = split.payeeUserId === null;
 
     split.members.forEach((m) => {
       if (m.status !== "pending") return;

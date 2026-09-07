@@ -16,20 +16,34 @@ export default function ProfilePage() {
   const darkMode = useAppStore((s) => s.darkMode);
   const toggleDarkMode = useAppStore((s) => s.toggleDarkMode);
 
-  const [gcashOpen, setGcashOpen] = useState(false);
+  const [paymentOpen, setPaymentOpen] = useState(false);
   const [gcashNumber, setGcashNumber] = useState("");
+  const [bankName, setBankName] = useState("");
+  const [bankAccountNumber, setBankAccountNumber] = useState("");
+  const [bankAccountName, setBankAccountName] = useState("");
+  const [hasQr, setHasQr] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   if (!user) return null;
   const fullName = `${user.firstName} ${user.lastName}`.trim() || "Splitzel User";
 
-  const openGcashModal = () => {
+  const openPaymentModal = () => {
     setGcashNumber(user.payment.gcashNumber ?? "");
-    setGcashOpen(true);
+    setBankName(user.payment.bankName ?? "");
+    setBankAccountNumber(user.payment.bankAccountNumber ?? "");
+    setBankAccountName(user.payment.bankAccountName ?? "");
+    setHasQr(user.payment.hasQr ?? false);
+    setPaymentOpen(true);
   };
 
-  const handleSaveGcash = async () => {
-    await updateUserPayment({ gcashNumber });
-    setGcashOpen(false);
+  const handleSavePayment = async () => {
+    setSaving(true);
+    try {
+      await updateUserPayment({ gcashNumber, bankName, bankAccountNumber, bankAccountName, hasQr });
+      setPaymentOpen(false);
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -52,9 +66,9 @@ export default function ProfilePage() {
           <Card outlined className="p-0 overflow-hidden">
             <RowButton
               icon={<Wallet size={18} />}
-              label="Linked GCash"
-              value={user.payment.gcashNumber || "Not linked"}
-              onClick={openGcashModal}
+              label="Payment Info"
+              value={user.payment.gcashNumber || "Not set"}
+              onClick={openPaymentModal}
             />
           </Card>
         </div>
@@ -86,11 +100,41 @@ export default function ProfilePage() {
         </button>
       </div>
 
-      <Modal open={gcashOpen} onClose={() => setGcashOpen(false)} title="Linked GCash">
+      <Modal open={paymentOpen} onClose={() => setPaymentOpen(false)} title="Payment Info">
         <div className="flex flex-col gap-4">
-          <Input label="GCash Number" value={gcashNumber} onChange={(e) => setGcashNumber(e.target.value)} placeholder="0917 123 4567" />
-          <Button fullWidth size="lg" onClick={handleSaveGcash}>
-            Save
+          <p className="-mt-1 text-xs text-navy/50 dark:text-white/50 font-secondary">
+            Connected friends see this when they settle up with you.
+          </p>
+          <Input
+            label="GCash Number"
+            value={gcashNumber}
+            onChange={(e) => setGcashNumber(e.target.value)}
+            placeholder="0917 123 4567"
+          />
+          <Input
+            label="Bank Name (optional)"
+            value={bankName}
+            onChange={(e) => setBankName(e.target.value)}
+            placeholder="BPI"
+          />
+          <Input
+            label="Bank Account Number (optional)"
+            value={bankAccountNumber}
+            onChange={(e) => setBankAccountNumber(e.target.value)}
+            placeholder="1234 5678 90"
+          />
+          <Input
+            label="Bank Account Name (optional)"
+            value={bankAccountName}
+            onChange={(e) => setBankAccountName(e.target.value)}
+            placeholder={fullName}
+          />
+          <div className="flex items-center justify-between rounded-2xl border-2 border-navy/10 dark:border-white/10 px-4 py-3">
+            <span className="text-sm font-semibold text-navy dark:text-white font-secondary">I have a GCash QR</span>
+            <Switch checked={hasQr} onChange={() => setHasQr((v) => !v)} />
+          </div>
+          <Button fullWidth size="lg" disabled={saving} onClick={handleSavePayment}>
+            {saving ? "Saving..." : "Save"}
           </Button>
         </div>
       </Modal>
