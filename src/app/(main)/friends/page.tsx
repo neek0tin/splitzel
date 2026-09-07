@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Camera, Check, Copy, Share2, UserPlus, X } from "lucide-react";
+import { Camera, Check, Copy, Share2, UserMinus, UserPlus, X } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
 import { Avatar } from "@/components/ui/Avatar";
 import { Card } from "@/components/ui/Card";
@@ -34,11 +34,14 @@ export default function FriendsPage() {
   const friends = useAppStore((s) => s.friends);
   const findFriendByCode = useAppStore((s) => s.findFriendByCode);
   const connectFriend = useAppStore((s) => s.connectFriend);
+  const removeFriend = useAppStore((s) => s.removeFriend);
 
   const [addOpen, setAddOpen] = useState(false);
   const [scanOpen, setScanOpen] = useState(false);
   const [qrFriend, setQrFriend] = useState<Friend | null>(null);
   const [copied, setCopied] = useState(false);
+  const [confirmRemove, setConfirmRemove] = useState(false);
+  const [removing, setRemoving] = useState(false);
 
   const [code, setCode] = useState("");
   const [searching, setSearching] = useState(false);
@@ -115,6 +118,23 @@ export default function FriendsPage() {
     router.push(`/add-friend/${scannedCode}`);
   };
 
+  const openFriendModal = (friend: Friend) => {
+    setQrFriend(friend);
+    setConfirmRemove(false);
+  };
+
+  const handleRemove = async () => {
+    if (!qrFriend) return;
+    setRemoving(true);
+    try {
+      await removeFriend(qrFriend.id);
+      setQrFriend(null);
+      setConfirmRemove(false);
+    } finally {
+      setRemoving(false);
+    }
+  };
+
   return (
     <div className="flex flex-col pb-8">
       <div className="px-6 pt-6">
@@ -177,7 +197,7 @@ export default function FriendsPage() {
                 </p>
               </div>
               <button
-                onClick={() => setQrFriend(friend)}
+                onClick={() => openFriendModal(friend)}
                 className="rounded-2xl border-2 border-navy/15 dark:border-white/20 px-3 py-2 text-xs font-semibold text-navy dark:text-white font-secondary active:scale-95 transition-transform"
               >
                 Show QR
@@ -259,7 +279,14 @@ export default function FriendsPage() {
         </div>
       </Modal>
 
-      <Modal open={!!qrFriend} onClose={() => setQrFriend(null)} title={qrFriend?.name}>
+      <Modal
+        open={!!qrFriend}
+        onClose={() => {
+          setQrFriend(null);
+          setConfirmRemove(false);
+        }}
+        title={qrFriend?.name}
+      >
         {qrFriend && (
           <div className="flex flex-col items-center gap-4 pb-2">
             <Avatar name={qrFriend.name} color={qrFriend.avatarColor} size="lg" />
@@ -274,6 +301,33 @@ export default function FriendsPage() {
                 {qrFriend.payment.gcashNumber ?? "Not set"}
               </p>
             </div>
+
+            {confirmRemove ? (
+              <div className="w-full rounded-2xl border-2 border-orange/40 bg-orange/10 p-4 text-center">
+                <p className="text-sm font-semibold text-navy dark:text-white font-secondary">
+                  Remove {qrFriend.name} from your friends?
+                </p>
+                <p className="mt-1 text-xs text-navy/50 dark:text-white/50 font-secondary">
+                  You&apos;ll need their code again to reconnect.
+                </p>
+                <div className="mt-3 flex gap-2">
+                  <Button variant="outline" fullWidth onClick={() => setConfirmRemove(false)} disabled={removing}>
+                    Cancel
+                  </Button>
+                  <Button variant="danger" fullWidth onClick={handleRemove} disabled={removing}>
+                    {removing ? "Removing..." : "Remove"}
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <button
+                onClick={() => setConfirmRemove(true)}
+                className="flex items-center gap-2 text-sm font-semibold text-orange font-secondary"
+              >
+                <UserMinus size={16} />
+                Remove Friend
+              </button>
+            )}
           </div>
         )}
       </Modal>
