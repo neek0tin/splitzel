@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronRight, LogOut, Moon, Shield, Smartphone, Wallet } from "lucide-react";
+import { ChevronRight, LogOut, Moon, Shield, Smartphone, Trash2, Upload, Wallet } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
 import { Avatar } from "@/components/ui/Avatar";
 import { Card } from "@/components/ui/Card";
@@ -10,6 +10,7 @@ import { Switch } from "@/components/ui/Switch";
 import { Modal } from "@/components/ui/Modal";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
+import { gcashQrUrl, removeGcashQr, uploadGcashQr } from "@/lib/gcashQr";
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -24,29 +25,71 @@ export default function ProfilePage() {
   const [bankName, setBankName] = useState("");
   const [bankAccountNumber, setBankAccountNumber] = useState("");
   const [bankAccountName, setBankAccountName] = useState("");
-  const [hasQr, setHasQr] = useState(false);
   const [saving, setSaving] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
 
+  const qrInputRef = useRef<HTMLInputElement>(null);
+  const [qrBusy, setQrBusy] = useState(false);
+  const [qrError, setQrError] = useState<string | null>(null);
+
   if (!user) return null;
   const fullName = `${user.firstName} ${user.lastName}`.trim() || "Splitzel User";
+  const qrImageUrl = gcashQrUrl(user.payment.gcashQrPath);
 
   const openPaymentModal = () => {
     setGcashNumber(user.payment.gcashNumber ?? "");
     setBankName(user.payment.bankName ?? "");
     setBankAccountNumber(user.payment.bankAccountNumber ?? "");
     setBankAccountName(user.payment.bankAccountName ?? "");
-    setHasQr(user.payment.hasQr ?? false);
+    setQrError(null);
     setPaymentOpen(true);
   };
 
   const handleSavePayment = async () => {
     setSaving(true);
     try {
-      await updateUserPayment({ gcashNumber, bankName, bankAccountNumber, bankAccountName, hasQr });
+      await updateUserPayment({ gcashNumber, bankName, bankAccountNumber, bankAccountName });
       setPaymentOpen(false);
     } finally {
       setSaving(false);
+    }
+  };
+
+  // The QR saves immediately rather than waiting for the Save button: the file
+  // is already in storage by the time we know its path, so leaving the profile
+  // column unwritten would orphan the object if the modal were dismissed.
+  const handleQrSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+
+    setQrBusy(true);
+    setQrError(null);
+    const previousPath = user.payment.gcashQrPath;
+    try {
+      const path = await uploadGcashQr(user.id, file);
+      await updateUserPayment({ gcashQrPath: path });
+      await removeGcashQr(previousPath);
+    } catch (err) {
+      setQrError(err instanceof Error ? err.message : "Couldn't upload that QR. Please try again.");
+    } finally {
+      setQrBusy(false);
+    }
+  };
+
+  const handleQrRemove = async () => {
+    const path = user.payment.gcashQrPath;
+    if (!path) return;
+
+    setQrBusy(true);
+    setQrError(null);
+    try {
+      await updateUserPayment({ gcashQrPath: null });
+      await removeGcashQr(path);
+    } catch (err) {
+      setQrError(err instanceof Error ? err.message : "Couldn't remove that QR. Please try again.");
+    } finally {
+      setQrBusy(false);
     }
   };
 
@@ -147,10 +190,63 @@ export default function ProfilePage() {
             onChange={(e) => setBankAccountName(e.target.value)}
             placeholder={fullName}
           />
-          <div className="flex items-center justify-between rounded-2xl border-2 border-navy/10 dark:border-white/10 px-4 py-3">
-            <span className="text-sm font-semibold text-navy dark:text-white font-secondary">I have a GCash QR</span>
-            <Switch checked={hasQr} onChange={() => setHasQr((v) => !v)} />
+          <div className="flex flex-col gap-3 rounded-2xl border-2 border-navy/10 dark:border-white/10 p-4">
+            <div>
+              <p className="text-sm font-semibold text-navy dark:text-white font-secondary">GCash QR</p>
+              <p className="mt-0.5 text-xs text-navy/50 dark:text-white/50 font-secondary">
+                Screenshot your QR in the GCash app, then upload it here. Friends scan it to pay you.
+              </p>
+            </div>
+
+            {qrImageUrl ? (
+              <div className="flex flex-col items-center gap-3">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={qrImageUrl}
+                  alt="Your GCash QR code"
+                  width={160}
+                  height={160}
+                  className="h-40 w-40 rounded-xl bg-white object-contain"
+                />
+                <div className="flex w-full gap-2">
+                  <Button variant="outline" fullWidth disabled={qrBusy} onClick={() => qrInputRef.current?.click()}>
+                    <span className="flex items-center justify-center gap-1.5">
+                      <Upload size={14} />
+                      Replace
+                    </span>
+                  </Button>
+                  <Button variant="danger" fullWidth disabled={qrBusy} onClick={handleQrRemove}>
+                    <span className="flex items-center justify-center gap-1.5">
+                      <Trash2 size={14} />
+                      Remove
+                    </span>
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <button
+                onClick={() => qrInputRef.current?.click()}
+                disabled={qrBusy}
+                className="flex h-40 w-full flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-navy/20 dark:border-white/20 text-navy/50 dark:text-white/50 active:scale-[0.99] transition-transform disabled:opacity-50"
+              >
+                <Upload size={20} />
+                <span className="text-xs font-semibold font-secondary">
+                  {qrBusy ? "Uploading..." : "Upload your GCash QR"}
+                </span>
+              </button>
+            )}
+
+            <input
+              ref={qrInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handleQrSelected}
+            />
+
+            {qrError && <p className="text-xs text-orange font-secondary">{qrError}</p>}
           </div>
+
           <Button fullWidth size="lg" disabled={saving} onClick={handleSavePayment}>
             {saving ? "Saving..." : "Save"}
           </Button>
