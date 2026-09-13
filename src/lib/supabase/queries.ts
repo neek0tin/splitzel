@@ -92,7 +92,7 @@ interface ProfileRow {
   bank_name: string | null;
   bank_account_number: string | null;
   bank_account_name: string | null;
-  has_qr: boolean;
+  gcash_qr_path: string | null;
 }
 
 function mapProfile(row: ProfileRow): CurrentUser {
@@ -108,7 +108,7 @@ function mapProfile(row: ProfileRow): CurrentUser {
       bankName: row.bank_name ?? undefined,
       bankAccountNumber: row.bank_account_number ?? undefined,
       bankAccountName: row.bank_account_name ?? undefined,
-      hasQr: row.has_qr,
+      gcashQrPath: row.gcash_qr_path ?? undefined,
     },
   };
 }
@@ -129,7 +129,7 @@ export async function updateProfile(
     bankName: string;
     bankAccountNumber: string;
     bankAccountName: string;
-    hasQr: boolean;
+    gcashQrPath: string | null;
   }>
 ): Promise<void> {
   const { error } = await supabase
@@ -142,7 +142,7 @@ export async function updateProfile(
       ...(patch.bankName !== undefined && { bank_name: patch.bankName }),
       ...(patch.bankAccountNumber !== undefined && { bank_account_number: patch.bankAccountNumber }),
       ...(patch.bankAccountName !== undefined && { bank_account_name: patch.bankAccountName }),
-      ...(patch.hasQr !== undefined && { has_qr: patch.hasQr }),
+      ...(patch.gcashQrPath !== undefined && { gcash_qr_path: patch.gcashQrPath }),
     })
     .eq("id", userId);
   if (error) throw error;
@@ -162,7 +162,7 @@ interface FriendRow {
   bank_name: string | null;
   bank_account_number: string | null;
   bank_account_name: string | null;
-  has_qr: boolean;
+  gcash_qr_path: string | null;
 }
 
 function mapFriend(row: FriendRow): Friend {
@@ -176,7 +176,7 @@ function mapFriend(row: FriendRow): Friend {
       bankName: row.bank_name ?? undefined,
       bankAccountNumber: row.bank_account_number ?? undefined,
       bankAccountName: row.bank_account_name ?? undefined,
-      hasQr: row.has_qr,
+      gcashQrPath: row.gcash_qr_path ?? undefined,
     },
   };
 }

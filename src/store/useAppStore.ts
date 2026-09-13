@@ -68,7 +68,7 @@ interface AppState {
       bankName: string;
       bankAccountNumber: string;
       bankAccountName: string;
-      hasQr: boolean;
+      gcashQrPath: string | null;
     }>
   ) => Promise<void>;
   toggleDarkMode: () => void;
@@ -194,8 +194,19 @@ export const useAppStore = create<AppState>((set, get) => ({
   updateUserPayment: async (payment) => {
     const userId = await ensureSession();
     await updateProfile(userId, payment);
+    // The column stores "no QR" as null; PaymentInfo represents it as undefined.
+    const { gcashQrPath, ...rest } = payment;
     set((state) => ({
-      user: state.user ? { ...state.user, payment: { ...state.user.payment, ...payment } } : state.user,
+      user: state.user
+        ? {
+            ...state.user,
+            payment: {
+              ...state.user.payment,
+              ...rest,
+              ...(gcashQrPath !== undefined && { gcashQrPath: gcashQrPath ?? undefined }),
+            },
+          }
+        : state.user,
     }));
   },
 

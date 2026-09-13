@@ -5,7 +5,7 @@ import { Check, Copy } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
 import { Avatar } from "@/components/ui/Avatar";
-import { MockQRCode } from "@/components/ui/MockQRCode";
+import { gcashQrUrl } from "@/lib/gcashQr";
 import { cn, formatCurrency } from "@/lib/utils";
 import { getOverdueDays, getPayableShare } from "@/lib/aggregates";
 import type { Friend, Split } from "@/types";
@@ -51,6 +51,8 @@ export function SettleUpModal({
 
   if (!payee) return null;
 
+  const qrImageUrl = gcashQrUrl(payee.payment.gcashQrPath);
+
   return (
     <Modal open={open} onClose={onClose} title="Settle Up">
       <div className="flex flex-col gap-5">
@@ -89,11 +91,43 @@ export function SettleUpModal({
 
         {method === "gcash" ? (
           <div className="flex flex-col items-center gap-3 rounded-2xl bg-cream dark:bg-navy p-4">
-            {payee.payment.hasQr ? (
-              <MockQRCode seed={payee.id} size={160} />
+            {qrImageUrl ? (
+              /* eslint-disable-next-line @next/next/no-img-element */
+              <img
+                src={qrImageUrl}
+                alt={`${payee.name}'s GCash QR code`}
+                width={160}
+                height={160}
+                className="h-40 w-40 rounded-xl bg-white object-contain"
+              />
             ) : (
-              <p className="text-xs text-navy/40 dark:text-white/40 font-secondary">No QR uploaded</p>
+              <p className="py-8 text-center text-xs text-navy/40 dark:text-white/40 font-secondary">
+                {payee.name} hasn&apos;t uploaded a GCash QR yet. Send to the number below instead.
+              </p>
             )}
+
+            {/* A personal GCash QR is static -- it identifies the payee but carries
+                no amount, so the payer has to key this in by hand. Keep it loud. */}
+            <div className="w-full rounded-xl border-2 border-skyblue/40 bg-skyblue/10 p-3 text-center">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-navy/50 dark:text-white/50 font-secondary">
+                Amount to send
+              </p>
+              <button
+                onClick={() => handleCopy(share.total.toFixed(2))}
+                className="mt-0.5 flex w-full items-center justify-center gap-1.5 font-primary text-2xl font-bold tracking-brand text-navy dark:text-white"
+              >
+                {formatCurrency(share.total)}
+                {copied === share.total.toFixed(2) ? (
+                  <Check size={16} className="text-navy/40 dark:text-white/40" />
+                ) : (
+                  <Copy size={14} className="text-navy/40 dark:text-white/40" />
+                )}
+              </button>
+              <p className="mt-1 text-[11px] text-navy/50 dark:text-white/50 font-secondary">
+                The QR won&apos;t fill this in — type it in GCash yourself.
+              </p>
+            </div>
+
             <CopyRow label="GCash Number" value={payee.payment.gcashNumber ?? "—"} onCopy={handleCopy} copied={copied} />
             <CopyRow label="Account Name" value={payee.payment.gcashName ?? payee.name} onCopy={handleCopy} copied={copied} />
           </div>

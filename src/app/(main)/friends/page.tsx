@@ -9,7 +9,7 @@ import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Modal } from "@/components/ui/Modal";
-import { MockQRCode } from "@/components/ui/MockQRCode";
+import { gcashQrUrl } from "@/lib/gcashQr";
 import { RealQRCode } from "@/components/ui/RealQRCode";
 import { QRScannerModal } from "@/components/QRScannerModal";
 import type { FriendCodeMatch } from "@/lib/supabase/queries";
@@ -39,6 +39,7 @@ export default function FriendsPage() {
   const [addOpen, setAddOpen] = useState(false);
   const [scanOpen, setScanOpen] = useState(false);
   const [qrFriend, setQrFriend] = useState<Friend | null>(null);
+  const qrFriendQrUrl = gcashQrUrl(qrFriend?.payment.gcashQrPath);
   const [copied, setCopied] = useState(false);
   const [confirmRemove, setConfirmRemove] = useState(false);
   const [removing, setRemoving] = useState(false);
@@ -290,8 +291,15 @@ export default function FriendsPage() {
         {qrFriend && (
           <div className="flex flex-col items-center gap-4 pb-2">
             <Avatar name={qrFriend.name} color={qrFriend.avatarColor} size="lg" />
-            {qrFriend.payment.hasQr ? (
-              <MockQRCode seed={qrFriend.id} size={200} />
+            {qrFriendQrUrl ? (
+              /* eslint-disable-next-line @next/next/no-img-element */
+              <img
+                src={qrFriendQrUrl}
+                alt={`${qrFriend.name}'s GCash QR code`}
+                width={200}
+                height={200}
+                className="h-50 w-50 rounded-xl bg-white object-contain"
+              />
             ) : (
               <p className="text-xs text-navy/40 dark:text-white/40 font-secondary">No QR uploaded</p>
             )}

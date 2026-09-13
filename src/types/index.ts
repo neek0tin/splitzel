@@ -4,7 +4,8 @@ export interface PaymentInfo {
   bankName?: string;
   bankAccountNumber?: string;
   bankAccountName?: string;
-  hasQr?: boolean;
+  /** Storage path of the uploaded GCash QR, if any. Resolve with gcashQrUrl(). */
+  gcashQrPath?: string;
 }
 
 export interface CurrentUser {
