@@ -19,6 +19,7 @@ const CORNER_CLASSES = [
 export default function CapturePage() {
   const router = useRouter();
   const startDraftFromReceipt = useAppStore((s) => s.startDraftFromReceipt);
+  const clearDraft = useAppStore((s) => s.clearDraft);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -105,7 +106,10 @@ export default function CapturePage() {
     <div className="flex flex-1 flex-col bg-navy-dark text-white">
       <div className="flex items-center justify-between px-5 pt-6">
         <button
-          onClick={() => router.back()}
+          onClick={() => {
+            clearDraft();
+            router.push("/home");
+          }}
           className="flex h-9 w-9 items-center justify-center rounded-2xl bg-white/10 active:scale-95 transition-transform"
         >
           <X size={18} />
