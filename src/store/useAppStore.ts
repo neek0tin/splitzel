@@ -20,7 +20,7 @@ import {
   updateProfile,
   type FriendCodeMatch,
 } from "@/lib/supabase/queries";
-import { computeReceiptTotals } from "@/lib/splitEngine";
+import { computeReceiptTotals, DEFAULT_SERVICE_CHARGE_RATE } from "@/lib/splitEngine";
 import { genId } from "@/lib/utils";
 import type {
   AppNotification,
@@ -82,6 +82,7 @@ interface AppState {
   addDraftItem: (item: { name: string; price: number; quantity: number }) => void;
   updateDraftItem: (itemId: string, patch: Partial<{ name: string; price: number; quantity: number }>) => void;
   removeDraftItem: (itemId: string) => void;
+  setDraftServiceChargeEnabled: (enabled: boolean) => void;
   setDraftMethod: (method: SplitMethod) => void;
   addDraftMember: (member: SplitMember) => void;
   removeDraftMember: (memberId: string) => void;
@@ -288,6 +289,14 @@ export const useAppStore = create<AppState>((set, get) => ({
           assignments: state.draft.assignments.filter((a) => a.itemId !== itemId),
         },
       };
+    }),
+
+  setDraftServiceChargeEnabled: (enabled) =>
+    set((state) => {
+      if (!state.draft.receipt) return state;
+      const serviceChargeRate = enabled ? DEFAULT_SERVICE_CHARGE_RATE : 0;
+      const totals = computeReceiptTotals(state.draft.receipt.items, state.draft.receipt.vatRate, serviceChargeRate);
+      return { draft: { ...state.draft, receipt: { ...state.draft.receipt, serviceChargeRate, ...totals } } };
     }),
 
   setDraftMethod: (method) => set((state) => ({ draft: { ...state.draft, method } })),

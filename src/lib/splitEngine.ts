@@ -2,6 +2,8 @@ import type { ItemAssignment, Receipt, ShareBreakdown, SplitMethod } from "@/typ
 
 export const LATE_FEE_PER_DAY = 5;
 export const CONVENIENCE_FEE = 5;
+export const DEFAULT_VAT_RATE = 0.12;
+export const DEFAULT_SERVICE_CHARGE_RATE = 0.1;
 
 export function round2(value: number): number {
   return Math.round((value + Number.EPSILON) * 100) / 100;

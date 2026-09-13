@@ -6,7 +6,7 @@ import { Image as ImageIcon, Sparkles, X } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
 import { captureVideoFrame, fileToJpegDataUrl } from "@/lib/imageCapture";
 import { scanReceiptImage } from "@/lib/scanReceipt";
-import { computeReceiptTotals } from "@/lib/splitEngine";
+import { computeReceiptTotals, DEFAULT_SERVICE_CHARGE_RATE, DEFAULT_VAT_RATE } from "@/lib/splitEngine";
 import { genId } from "@/lib/utils";
 
 const CORNER_CLASSES = [
@@ -89,14 +89,14 @@ export default function CapturePage() {
   };
 
   const handleEnterManually = () => {
-    const totals = computeReceiptTotals([], 0.12, 0.1);
+    const totals = computeReceiptTotals([], DEFAULT_VAT_RATE, DEFAULT_SERVICE_CHARGE_RATE);
     startDraftFromReceipt({
       id: genId("receipt"),
       establishment: "",
       date: new Date().toISOString(),
       items: [],
-      vatRate: 0.12,
-      serviceChargeRate: 0.1,
+      vatRate: DEFAULT_VAT_RATE,
+      serviceChargeRate: DEFAULT_SERVICE_CHARGE_RATE,
       ...totals,
     });
     router.push("/scan/verify");

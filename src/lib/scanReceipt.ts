@@ -1,4 +1,4 @@
-import { computeReceiptTotals } from "@/lib/splitEngine";
+import { computeReceiptTotals, DEFAULT_SERVICE_CHARGE_RATE, DEFAULT_VAT_RATE } from "@/lib/splitEngine";
 import { genId } from "@/lib/utils";
 import type { Receipt } from "@/types";
 
@@ -22,15 +22,15 @@ export async function scanReceiptImage(imageDataUrl: string): Promise<Receipt> {
 
   const result = body as ScanResult;
   const items = result.items.map((i) => ({ id: genId("item"), name: i.name, price: i.price, quantity: i.quantity }));
-  const totals = computeReceiptTotals(items, 0.12, 0.1);
+  const totals = computeReceiptTotals(items, DEFAULT_VAT_RATE, DEFAULT_SERVICE_CHARGE_RATE);
 
   return {
     id: genId("receipt"),
     establishment: result.establishment,
     date: new Date().toISOString(),
     items,
-    vatRate: 0.12,
-    serviceChargeRate: 0.1,
+    vatRate: DEFAULT_VAT_RATE,
+    serviceChargeRate: DEFAULT_SERVICE_CHARGE_RATE,
     ...totals,
   };
 }

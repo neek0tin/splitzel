@@ -7,6 +7,7 @@ import { ScreenHeader } from "@/components/ScreenHeader";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Modal } from "@/components/ui/Modal";
+import { Switch } from "@/components/ui/Switch";
 import { useAppStore } from "@/store/useAppStore";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import type { ReceiptItem } from "@/types";
@@ -18,6 +19,7 @@ export default function VerifyReceiptPage() {
   const addDraftItem = useAppStore((s) => s.addDraftItem);
   const updateDraftItem = useAppStore((s) => s.updateDraftItem);
   const removeDraftItem = useAppStore((s) => s.removeDraftItem);
+  const setDraftServiceChargeEnabled = useAppStore((s) => s.setDraftServiceChargeEnabled);
 
   const [nameOpen, setNameOpen] = useState(false);
   const [nameDraft, setNameDraft] = useState("");
@@ -135,8 +137,16 @@ export default function VerifyReceiptPage() {
               <span>VAT (12%)</span>
               <span>{formatCurrency(receipt.vat)}</span>
             </div>
-            <div className="flex justify-between">
-              <span>Service Charge (10%)</span>
+            <div className="flex items-center justify-between">
+              <span className="flex items-center gap-2">
+                Service Charge {receipt.serviceChargeRate > 0 && `(${Math.round(receipt.serviceChargeRate * 100)}%)`}
+                <span className="scale-75 origin-left">
+                  <Switch
+                    checked={receipt.serviceChargeRate > 0}
+                    onChange={() => setDraftServiceChargeEnabled(receipt.serviceChargeRate === 0)}
+                  />
+                </span>
+              </span>
               <span>{formatCurrency(receipt.serviceCharge)}</span>
             </div>
           </div>
