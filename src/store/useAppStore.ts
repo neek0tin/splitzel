@@ -20,7 +20,7 @@ import {
   updateProfile,
   type FriendCodeMatch,
 } from "@/lib/supabase/queries";
-import { computeReceiptTotals, DEFAULT_SERVICE_CHARGE_RATE } from "@/lib/splitEngine";
+import { computeReceiptTotals, DEFAULT_SERVICE_CHARGE_RATE, DEFAULT_VAT_RATE } from "@/lib/splitEngine";
 import { genId } from "@/lib/utils";
 import type {
   AppNotification,
@@ -82,7 +82,10 @@ interface AppState {
   addDraftItem: (item: { name: string; price: number; quantity: number }) => void;
   updateDraftItem: (itemId: string, patch: Partial<{ name: string; price: number; quantity: number }>) => void;
   removeDraftItem: (itemId: string) => void;
+  setDraftVatEnabled: (enabled: boolean) => void;
+  setDraftVatRate: (rate: number) => void;
   setDraftServiceChargeEnabled: (enabled: boolean) => void;
+  setDraftServiceChargeRate: (rate: number) => void;
   setDraftMethod: (method: SplitMethod) => void;
   addDraftMember: (member: SplitMember) => void;
   removeDraftMember: (memberId: string) => void;
@@ -291,10 +294,34 @@ export const useAppStore = create<AppState>((set, get) => ({
       };
     }),
 
+  setDraftVatEnabled: (enabled) =>
+    set((state) => {
+      if (!state.draft.receipt) return state;
+      const vatRate = enabled ? DEFAULT_VAT_RATE : 0;
+      const totals = computeReceiptTotals(state.draft.receipt.items, vatRate, state.draft.receipt.serviceChargeRate);
+      return { draft: { ...state.draft, receipt: { ...state.draft.receipt, vatRate, ...totals } } };
+    }),
+
+  setDraftVatRate: (rate) =>
+    set((state) => {
+      if (!state.draft.receipt) return state;
+      const vatRate = Math.max(0, rate);
+      const totals = computeReceiptTotals(state.draft.receipt.items, vatRate, state.draft.receipt.serviceChargeRate);
+      return { draft: { ...state.draft, receipt: { ...state.draft.receipt, vatRate, ...totals } } };
+    }),
+
   setDraftServiceChargeEnabled: (enabled) =>
     set((state) => {
       if (!state.draft.receipt) return state;
       const serviceChargeRate = enabled ? DEFAULT_SERVICE_CHARGE_RATE : 0;
+      const totals = computeReceiptTotals(state.draft.receipt.items, state.draft.receipt.vatRate, serviceChargeRate);
+      return { draft: { ...state.draft, receipt: { ...state.draft.receipt, serviceChargeRate, ...totals } } };
+    }),
+
+  setDraftServiceChargeRate: (rate) =>
+    set((state) => {
+      if (!state.draft.receipt) return state;
+      const serviceChargeRate = Math.max(0, rate);
       const totals = computeReceiptTotals(state.draft.receipt.items, state.draft.receipt.vatRate, serviceChargeRate);
       return { draft: { ...state.draft, receipt: { ...state.draft.receipt, serviceChargeRate, ...totals } } };
     }),

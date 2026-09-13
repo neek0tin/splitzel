@@ -19,7 +19,10 @@ export default function VerifyReceiptPage() {
   const addDraftItem = useAppStore((s) => s.addDraftItem);
   const updateDraftItem = useAppStore((s) => s.updateDraftItem);
   const removeDraftItem = useAppStore((s) => s.removeDraftItem);
+  const setDraftVatEnabled = useAppStore((s) => s.setDraftVatEnabled);
+  const setDraftVatRate = useAppStore((s) => s.setDraftVatRate);
   const setDraftServiceChargeEnabled = useAppStore((s) => s.setDraftServiceChargeEnabled);
+  const setDraftServiceChargeRate = useAppStore((s) => s.setDraftServiceChargeRate);
 
   const [nameOpen, setNameOpen] = useState(false);
   const [nameDraft, setNameDraft] = useState("");
@@ -28,6 +31,9 @@ export default function VerifyReceiptPage() {
   const [itemName, setItemName] = useState("");
   const [itemPrice, setItemPrice] = useState("");
   const [itemQty, setItemQty] = useState("1");
+
+  const [rateModal, setRateModal] = useState<"vat" | "serviceCharge" | null>(null);
+  const [rateDraft, setRateDraft] = useState("");
 
   useEffect(() => {
     if (!receipt) router.replace("/scan");
@@ -75,6 +81,21 @@ export default function VerifyReceiptPage() {
   const deleteItem = () => {
     if (itemModal?.item) removeDraftItem(itemModal.item.id);
     setItemModal(null);
+  };
+
+  const openEditRate = (field: "vat" | "serviceCharge") => {
+    const rate = field === "vat" ? receipt.vatRate : receipt.serviceChargeRate;
+    setRateDraft(String(Math.round(rate * 100)));
+    setRateModal(field);
+  };
+
+  const saveRate = () => {
+    const pct = parseFloat(rateDraft);
+    if (!Number.isFinite(pct) || pct < 0) return;
+    const rate = pct / 100;
+    if (rateModal === "vat") setDraftVatRate(rate);
+    else if (rateModal === "serviceCharge") setDraftServiceChargeRate(rate);
+    setRateModal(null);
   };
 
   return (
@@ -133,13 +154,35 @@ export default function VerifyReceiptPage() {
               <span>Subtotal</span>
               <span>{formatCurrency(receipt.subtotal)}</span>
             </div>
-            <div className="flex justify-between">
-              <span>VAT (12%)</span>
+            <div className="flex items-center justify-between">
+              <span className="flex items-center gap-2">
+                {receipt.vatRate > 0 ? (
+                  <button onClick={() => openEditRate("vat")} className="flex items-center gap-1 active:opacity-60">
+                    VAT ({Math.round(receipt.vatRate * 100)}%)
+                    <Pencil size={9} className="text-navy/40" />
+                  </button>
+                ) : (
+                  <span>VAT</span>
+                )}
+                <span className="scale-75 origin-left">
+                  <Switch checked={receipt.vatRate > 0} onChange={() => setDraftVatEnabled(receipt.vatRate === 0)} />
+                </span>
+              </span>
               <span>{formatCurrency(receipt.vat)}</span>
             </div>
             <div className="flex items-center justify-between">
               <span className="flex items-center gap-2">
-                Service Charge {receipt.serviceChargeRate > 0 && `(${Math.round(receipt.serviceChargeRate * 100)}%)`}
+                {receipt.serviceChargeRate > 0 ? (
+                  <button
+                    onClick={() => openEditRate("serviceCharge")}
+                    className="flex items-center gap-1 active:opacity-60"
+                  >
+                    Service Charge ({Math.round(receipt.serviceChargeRate * 100)}%)
+                    <Pencil size={9} className="text-navy/40" />
+                  </button>
+                ) : (
+                  <span>Service Charge</span>
+                )}
                 <span className="scale-75 origin-left">
                   <Switch
                     checked={receipt.serviceChargeRate > 0}
@@ -181,6 +224,27 @@ export default function VerifyReceiptPage() {
             autoFocus
           />
           <Button fullWidth size="lg" onClick={saveEditName}>
+            Save
+          </Button>
+        </div>
+      </Modal>
+
+      <Modal
+        open={!!rateModal}
+        onClose={() => setRateModal(null)}
+        title={rateModal === "vat" ? "VAT" : "Service Charge"}
+      >
+        <div className="flex flex-col gap-4">
+          <Input
+            label="Rate (%)"
+            type="number"
+            inputMode="decimal"
+            placeholder="0"
+            value={rateDraft}
+            onChange={(e) => setRateDraft(e.target.value)}
+            autoFocus
+          />
+          <Button fullWidth size="lg" onClick={saveRate}>
             Save
           </Button>
         </div>
