@@ -435,6 +435,18 @@ export async function createSplit(params: {
   return splitRow.id;
 }
 
+/**
+ * Deleting the receipt (rather than the split row itself) cascades through
+ * receipt_items, splits, split_members, split_item_assignments, and any
+ * notifications referencing the split -- a full, clean removal in one call.
+ * RLS on receipts restricts this to the receipt's owner, so only the split's
+ * creator can cancel it.
+ */
+export async function deleteSplit(receiptId: string): Promise<void> {
+  const { error } = await supabase.from("receipts").delete().eq("id", receiptId);
+  if (error) throw error;
+}
+
 export async function markSplitMemberPaid(splitMemberId: string): Promise<void> {
   const { error } = await supabase.rpc("mark_split_member_paid", { p_split_member_id: splitMemberId });
   if (error) throw error;

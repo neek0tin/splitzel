@@ -14,6 +14,7 @@ import {
   markNotificationRead as markNotificationReadQuery,
   markSplitMemberPaid,
   nudgeSplitMember,
+  deleteSplit as deleteSplitRow,
   removeFriendConnection,
   signOut,
   subscribeToNotifications,
@@ -92,6 +93,7 @@ interface AppState {
   toggleItemAssignment: (itemId: string, memberId: string) => void;
   clearDraft: () => void;
   finalizeSplit: () => Promise<string>;
+  deleteSplit: (splitId: string) => Promise<void>;
 
   markMemberPaid: (splitId: string, memberId: string) => Promise<void>;
 }
@@ -394,6 +396,13 @@ export const useAppStore = create<AppState>((set, get) => ({
     set({ splits });
 
     return newSplitId;
+  },
+
+  deleteSplit: async (splitId) => {
+    const split = get().splits.find((s) => s.id === splitId);
+    if (!split) return;
+    await deleteSplitRow(split.receipt.id);
+    set((state) => ({ splits: state.splits.filter((s) => s.id !== splitId) }));
   },
 
   markMemberPaid: async (splitId, memberId) => {

@@ -2,13 +2,14 @@
 
 import { use, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Bell, BellRing, CheckCircle2, Clock } from "lucide-react";
+import { Bell, BellRing, CheckCircle2, Clock, Trash2 } from "lucide-react";
 import { ScreenHeader } from "@/components/ScreenHeader";
 import { Avatar } from "@/components/ui/Avatar";
 import { Card } from "@/components/ui/Card";
 import { StatusPill } from "@/components/ui/StatusPill";
 import { ProgressBar } from "@/components/ui/ProgressBar";
 import { Button } from "@/components/ui/Button";
+import { Modal } from "@/components/ui/Modal";
 import { PretzelIcon } from "@/components/ui/Logo";
 import { SettleUpModal } from "@/components/SettleUpModal";
 import { useAppStore } from "@/store/useAppStore";
@@ -25,10 +26,13 @@ export default function SplitDetailPage({ params }: { params: Promise<{ id: stri
   const friends = useAppStore((s) => s.friends);
   const markMemberPaid = useAppStore((s) => s.markMemberPaid);
   const nudgeMember = useAppStore((s) => s.nudgeMember);
+  const deleteSplit = useAppStore((s) => s.deleteSplit);
 
   const [settleOpen, setSettleOpen] = useState(false);
   const [nudgingId, setNudgingId] = useState<string | null>(null);
   const [nudgedIds, setNudgedIds] = useState<Set<string>>(new Set());
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     hydrate();
@@ -59,6 +63,16 @@ export default function SplitDetailPage({ params }: { params: Promise<{ id: stri
       </div>
     );
   }
+
+  const handleDelete = async () => {
+    setDeleting(true);
+    try {
+      await deleteSplit(split.id);
+      router.push("/bills");
+    } catch {
+      setDeleting(false);
+    }
+  };
 
   const handleNudge = async (memberId: string) => {
     setNudgingId(memberId);
@@ -186,6 +200,16 @@ export default function SplitDetailPage({ params }: { params: Promise<{ id: stri
             })}
           </div>
         </div>
+
+        {user?.id === split.ownerId && (
+          <button
+            onClick={() => setConfirmDeleteOpen(true)}
+            className="mt-6 flex w-full items-center justify-center gap-1.5 rounded-2xl border-2 border-orange/30 py-3 text-sm font-semibold text-orange active:scale-[0.98] transition-transform font-secondary"
+          >
+            <Trash2 size={15} />
+            Delete Split
+          </button>
+        )}
       </div>
 
       {!isPayee && me?.status === "pending" && (
@@ -204,6 +228,24 @@ export default function SplitDetailPage({ params }: { params: Promise<{ id: stri
         payee={payee}
         onSettled={() => me && markMemberPaid(split.id, me.id)}
       />
+
+      <Modal open={confirmDeleteOpen} onClose={() => setConfirmDeleteOpen(false)} title="Delete this split?">
+        <div className="flex flex-col gap-4">
+          <p className="text-sm text-navy/60 dark:text-white/60 font-secondary">
+            This removes the split for everyone in it and can&apos;t be undone. Use this if, for example, someone
+            decided to treat the group and the bill no longer needs to be split.
+          </p>
+          <Button fullWidth size="lg" variant="danger" onClick={handleDelete} disabled={deleting}>
+            {deleting ? "Deleting..." : "Delete Split"}
+          </Button>
+          <button
+            onClick={() => setConfirmDeleteOpen(false)}
+            className="text-center text-sm font-semibold text-navy/60 dark:text-white/60 font-secondary"
+          >
+            Cancel
+          </button>
+        </div>
+      </Modal>
     </div>
   );
 }
