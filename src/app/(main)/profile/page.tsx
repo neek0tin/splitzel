@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronRight, Crown, HandCoins, LogOut, Moon, Shield, Smartphone, Trash2, Upload, Wallet } from "lucide-react";
+import { ChevronRight, Crown, HandCoins, LogOut, Moon, Shield, Trash2, Upload, Wallet } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
 import { Avatar } from "@/components/ui/Avatar";
 import { Card } from "@/components/ui/Card";
@@ -194,9 +194,7 @@ export default function ProfilePage() {
               <Switch checked={darkMode} onChange={toggleDarkMode} />
             </div>
             <Divider />
-            <RowButton icon={<Shield size={18} />} label="Privacy & Security" onClick={() => {}} />
-            <Divider />
-            <RowButton icon={<Smartphone size={18} />} label="Linked Devices" onClick={() => {}} />
+            <RowButton icon={<Shield size={18} />} label="Privacy & Security" onClick={() => router.push("/privacy")} />
           </Card>
         </div>
 
