@@ -6,10 +6,10 @@ import { usePathname, useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 
 const tabs = [
-  { href: "/home", label: "Home", icon: Home },
-  { href: "/bills", label: "My Bills", icon: Receipt },
-  { href: "/friends", label: "Friends", icon: Users },
-  { href: "/profile", label: "Profile", icon: User },
+  { href: "/home", label: "Home", icon: Home, tutorialId: "tab-home" },
+  { href: "/bills", label: "My Bills", icon: Receipt, tutorialId: "tab-bills" },
+  { href: "/friends", label: "Friends", icon: Users, tutorialId: "tab-friends" },
+  { href: "/profile", label: "Profile", icon: User, tutorialId: "tab-profile" },
 ];
 
 export function BottomTabBar() {
@@ -36,6 +36,7 @@ export function BottomTabBar() {
         <button
           onClick={handleScan}
           aria-label="Scan receipt"
+          data-tutorial="scan-button"
           className="absolute left-1/2 -top-6 -translate-x-1/2 flex h-16 w-16 items-center justify-center rounded-full bg-skyblue border-4 border-white dark:border-navy-dark shadow-lg active:scale-95 transition-transform"
         >
           <ScanLine className="text-white" size={26} />
@@ -49,13 +50,14 @@ function TabLink({
   tab,
   active,
 }: {
-  tab: { href: string; label: string; icon: typeof Home };
+  tab: { href: string; label: string; icon: typeof Home; tutorialId: string };
   active: boolean;
 }) {
   const Icon = tab.icon;
   return (
     <Link
       href={tab.href}
+      data-tutorial={tab.tutorialId}
       className={cn(
         "flex flex-col items-center gap-1 px-2 py-1 transition-opacity",
         active ? "opacity-100" : "opacity-25"
