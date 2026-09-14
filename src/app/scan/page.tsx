@@ -28,6 +28,7 @@ export default function CapturePage() {
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [capturedPreview, setCapturedPreview] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -65,12 +66,15 @@ export default function CapturePage() {
     } catch (err) {
       setError(err instanceof Error ? err.message : "Couldn't process the receipt. Please try again.");
       setProcessing(false);
+      setCapturedPreview(null);
     }
   };
 
   const handleCapture = () => {
     if (processing || !videoRef.current || videoRef.current.readyState < videoRef.current.HAVE_CURRENT_DATA) return;
-    handleScanResult(captureVideoFrame(videoRef.current));
+    const dataUrl = captureVideoFrame(videoRef.current);
+    setCapturedPreview(dataUrl);
+    handleScanResult(dataUrl);
   };
 
   const handleFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -81,6 +85,7 @@ export default function CapturePage() {
     setError(null);
     try {
       const dataUrl = await fileToJpegDataUrl(file);
+      setCapturedPreview(dataUrl);
       await handleScanResult(dataUrl);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Couldn't read that image. Please try again.");
@@ -126,6 +131,14 @@ export default function CapturePage() {
       <div className="relative flex flex-1 items-center justify-center px-8">
         <div className="relative aspect-[3/4] w-full max-w-[280px] overflow-hidden rounded-2xl bg-black/40">
           <video ref={videoRef} className="h-full w-full object-cover" playsInline muted />
+
+          {/* A frozen snapshot of the exact frame that was captured, covering the live
+              feed entirely — without this, the video underneath keeps moving with the
+              phone during processing, making it look like nothing was captured. */}
+          {capturedPreview && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={capturedPreview} alt="" className="absolute inset-0 h-full w-full object-cover" />
+          )}
 
           {CORNER_CLASSES.map((pos) => (
             <span key={pos} className={`pointer-events-none absolute h-10 w-10 border-skyblue ${pos}`} />
