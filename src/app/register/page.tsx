@@ -23,17 +23,6 @@ function GoogleIcon() {
   );
 }
 
-function FacebookIcon() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24">
-      <path
-        fill="#1877F2"
-        d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"
-      />
-    </svg>
-  );
-}
-
 function DiscordIcon() {
   return (
     <svg width="20" height="20" viewBox="0 0 127.14 96.36">
@@ -45,13 +34,13 @@ function DiscordIcon() {
   );
 }
 
-const PROVIDER_LABELS = { google: "Google", facebook: "Facebook", discord: "Discord" } as const;
+const PROVIDER_LABELS = { google: "Google", discord: "Discord" } as const;
 
 export default function RegisterPage() {
-  const [connecting, setConnecting] = useState<"google" | "facebook" | "discord" | null>(null);
+  const [connecting, setConnecting] = useState<"google" | "discord" | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const handleSignIn = async (provider: "google" | "facebook" | "discord") => {
+  const handleSignIn = async (provider: "google" | "discord") => {
     setConnecting(provider);
     setError(null);
     try {
@@ -90,7 +79,7 @@ export default function RegisterPage() {
       <div className="flex flex-col gap-3">
         {error && <p className="text-center text-sm text-orange font-secondary">{error}</p>}
         <Button
-          variant="outline"
+          variant="primary"
           fullWidth
           size="lg"
           icon={<GoogleIcon />}
@@ -98,16 +87,6 @@ export default function RegisterPage() {
           disabled={connecting !== null}
         >
           {connecting === "google" ? "Connecting..." : "Continue with Google"}
-        </Button>
-        <Button
-          variant="primary"
-          fullWidth
-          size="lg"
-          icon={<FacebookIcon />}
-          onClick={() => handleSignIn("facebook")}
-          disabled={connecting !== null}
-        >
-          {connecting === "facebook" ? "Connecting..." : "Continue with Facebook"}
         </Button>
         <Button
           variant="outline"

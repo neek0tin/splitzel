@@ -23,7 +23,7 @@ export default function PrivacyPolicyPage() {
         <Section title="Information We Collect">
           <ul className="list-disc space-y-2 pl-5">
             <li>
-              <strong>Account information</strong> — when you sign in with Google or Facebook, we receive your name,
+              <strong>Account information</strong> — when you sign in with Google or Discord, we receive your name,
               profile picture, and email address from that provider so we can create your Splitzel account.
             </li>
             <li>
@@ -33,7 +33,7 @@ export default function PrivacyPolicyPage() {
             </li>
             <li>
               <strong>Receipt photos</strong> — when you scan a receipt, the photo is sent to a third-party AI
-              service (Anthropic) to read the item names, prices, and quantities on it. The photo itself is not
+              service (Google Gemini) to read the item names, prices, and quantities on it. The photo itself is not
               stored by us after it&apos;s processed — only the extracted text (item names and prices) is saved to
               your bill.
             </li>
@@ -55,15 +55,15 @@ export default function PrivacyPolicyPage() {
         <Section title="Third-Party Services We Use">
           <ul className="list-disc space-y-2 pl-5">
             <li>
-              <strong>Google and Facebook</strong> — to let you sign in without creating a separate password.
+              <strong>Google and Discord</strong> — to let you sign in without creating a separate password.
             </li>
             <li>
               <strong>Supabase</strong> — our database and authentication provider, which stores your account and
               bill-splitting data securely.
             </li>
             <li>
-              <strong>Anthropic (Claude)</strong> — processes receipt photos you scan to extract item data, as
-              described above.
+              <strong>Google Gemini</strong> — processes receipt photos you scan to extract item data, as described
+              above.
             </li>
             <li>
               <strong>Vercel</strong> — hosts the Splitzel web app itself.

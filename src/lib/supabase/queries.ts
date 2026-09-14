@@ -35,7 +35,7 @@ export async function signOut(): Promise<void> {
   if (error) throw error;
 }
 
-export type OAuthProvider = "google" | "facebook" | "discord";
+export type OAuthProvider = "google" | "discord";
 
 /**
  * Starts a real OAuth sign-in and redirects the browser to the provider.
@@ -56,7 +56,7 @@ export async function signInWithProvider(provider: OAuthProvider, redirectTo: st
   if (error) throw error;
 }
 
-/** Pulls a name hint out of an OAuth provider's profile data (e.g. Google, Facebook, Discord), if any. */
+/** Pulls a name hint out of an OAuth provider's profile data (e.g. Google, Discord), if any. */
 export async function fetchNameHint(): Promise<{ firstName: string; lastName: string } | null> {
   const {
     data: { user },
@@ -64,14 +64,14 @@ export async function fetchNameHint(): Promise<{ firstName: string; lastName: st
   if (!user) return null;
 
   const meta = user.user_metadata ?? {};
-  // Google uses given_name/family_name; Facebook uses first_name/last_name; Discord has no
-  // split name at all (often just a single-word display name/username). All of them also
-  // provide a combined name/full_name we can fall back to splitting on whitespace.
+  // Google uses given_name/family_name; Discord has no split name at all (often just a
+  // single-word display name/username). Both also provide a combined name/full_name we
+  // can fall back to splitting on whitespace.
   const fullName: string = meta.full_name ?? meta.name ?? "";
   const [fallbackFirst, ...fallbackRest] = fullName.trim().split(/\s+/).filter(Boolean);
 
-  const firstName = meta.given_name ?? meta.first_name ?? fallbackFirst ?? "";
-  const lastName = meta.family_name ?? meta.last_name ?? fallbackRest.join(" ") ?? "";
+  const firstName = meta.given_name ?? fallbackFirst ?? "";
+  const lastName = meta.family_name ?? fallbackRest.join(" ") ?? "";
 
   if (!firstName && !lastName) return null;
   return { firstName, lastName };
