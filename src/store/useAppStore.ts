@@ -22,7 +22,7 @@ import {
   type FriendCodeMatch,
 } from "@/lib/supabase/queries";
 import { computeReceiptTotals, DEFAULT_SERVICE_CHARGE_RATE, DEFAULT_VAT_RATE } from "@/lib/splitEngine";
-import { genId } from "@/lib/utils";
+import { clearReturningUser, genId, markAsReturningUser } from "@/lib/utils";
 import type {
   AppNotification,
   CurrentUser,
@@ -127,6 +127,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       const friendsById = new Map(friends.map((f) => [f.id, f]));
       const splits = await fetchSplits(friendsById, { id: user.id, avatarColor: user.avatarColor });
       set({ user, friends, splits, initialized: true, loading: false });
+      if (user.firstName) markAsReturningUser();
 
       // Notifications are best-effort: if this table/migration isn't in place yet
       // (or the fetch fails for any other reason), the rest of the app must still
@@ -155,6 +156,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   logOut: async () => {
     notificationsUnsubscribe?.();
     notificationsUnsubscribe = null;
+    clearReturningUser();
     await signOut();
     set({
       initialized: false,

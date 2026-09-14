@@ -64,3 +64,31 @@ export function hoursSince(iso: string): number {
 export function genId(prefix = "id"): string {
   return `${prefix}_${Math.random().toString(36).slice(2, 10)}${Date.now().toString(36)}`;
 }
+
+const RETURNING_USER_KEY = "splitzel-returning-user";
+
+/** Recorded after a successful hydrate so the splash screen can pick its animation
+ *  synchronously, before the first hydrate() of a new page load has resolved. */
+export function markAsReturningUser() {
+  try {
+    localStorage.setItem(RETURNING_USER_KEY, "1");
+  } catch {
+    // localStorage can throw (private browsing, disabled storage) — not worth failing over.
+  }
+}
+
+export function clearReturningUser() {
+  try {
+    localStorage.removeItem(RETURNING_USER_KEY);
+  } catch {
+    // see markAsReturningUser
+  }
+}
+
+export function isReturningUser(): boolean {
+  try {
+    return localStorage.getItem(RETURNING_USER_KEY) === "1";
+  } catch {
+    return false;
+  }
+}

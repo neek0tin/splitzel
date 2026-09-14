@@ -1,13 +1,26 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
-import { SplitzelLogo } from "@/components/ui/Logo";
+import { PretzelFillIcon, SplitzelLogo } from "@/components/ui/Logo";
 import { useAppStore } from "@/store/useAppStore";
+import { isReturningUser } from "@/lib/utils";
+
+// localStorage never changes from outside this page while it's mounted, so the
+// subscription itself is a no-op — this is purely to get an SSR-safe read (via
+// getServerSnapshot) of client-only state without the flash a "read it in an
+// effect" approach would cause on hydration.
+function subscribeNoop() {
+  return () => {};
+}
+function getServerSnapshot() {
+  return false;
+}
 
 export default function SplashPage() {
   const router = useRouter();
   const [progress, setProgress] = useState(0);
+  const returning = useSyncExternalStore(subscribeNoop, isReturningUser, getServerSnapshot);
 
   useEffect(() => {
     const start = Date.now();
@@ -39,6 +52,14 @@ export default function SplashPage() {
       cancelAnimationFrame(raf);
     };
   }, [router]);
+
+  if (returning) {
+    return (
+      <div className="flex flex-1 flex-col items-center justify-center px-8">
+        <PretzelFillIcon size={72} progress={progress} />
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-6 px-8">
