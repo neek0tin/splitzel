@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronRight, Crown, HandCoins, LogOut, Moon, Shield, Trash2, Upload, Wallet } from "lucide-react";
+import { ChevronRight, Crown, HandCoins, LogOut, Moon, Shield, Trash2, Upload, UserX, Wallet } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
 import { Avatar } from "@/components/ui/Avatar";
 import { Card } from "@/components/ui/Card";
@@ -20,6 +20,7 @@ export default function ProfilePage() {
   const darkMode = useAppStore((s) => s.darkMode);
   const toggleDarkMode = useAppStore((s) => s.toggleDarkMode);
   const logOut = useAppStore((s) => s.logOut);
+  const deleteAccount = useAppStore((s) => s.deleteAccount);
 
   const [paymentOpen, setPaymentOpen] = useState(false);
   const [gcashNumber, setGcashNumber] = useState("");
@@ -28,6 +29,11 @@ export default function ProfilePage() {
   const [bankAccountName, setBankAccountName] = useState("");
   const [saving, setSaving] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
+
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
+  const [deletingAccount, setDeletingAccount] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const qrInputRef = useRef<HTMLInputElement>(null);
   const [qrBusy, setQrBusy] = useState(false);
@@ -102,6 +108,24 @@ export default function ProfilePage() {
     } catch {
       setLoggingOut(false);
     }
+  };
+
+  const handleDeleteAccount = async () => {
+    setDeletingAccount(true);
+    setDeleteError(null);
+    try {
+      await deleteAccount();
+      router.push("/register");
+    } catch (err) {
+      setDeleteError(err instanceof Error ? err.message : "Couldn't delete your account. Please try again.");
+      setDeletingAccount(false);
+    }
+  };
+
+  const closeDeleteModal = () => {
+    setDeleteOpen(false);
+    setDeleteConfirmText("");
+    setDeleteError(null);
   };
 
   return (
@@ -206,6 +230,14 @@ export default function ProfilePage() {
           <LogOut size={16} />
           {loggingOut ? "Logging Out..." : "Log Out"}
         </button>
+
+        <button
+          onClick={() => setDeleteOpen(true)}
+          className="mt-3 flex w-full items-center justify-center gap-2 py-3 text-sm font-semibold text-navy/40 dark:text-white/40 font-secondary active:scale-95 transition-transform"
+        >
+          <UserX size={16} />
+          Delete Account
+        </button>
       </div>
 
       <Modal open={paymentOpen} onClose={() => setPaymentOpen(false)} title="Payment Info">
@@ -297,6 +329,40 @@ export default function ProfilePage() {
           <Button fullWidth size="lg" disabled={saving} onClick={handleSavePayment}>
             {saving ? "Saving..." : "Save"}
           </Button>
+        </div>
+      </Modal>
+
+      <Modal open={deleteOpen} onClose={closeDeleteModal} title="Delete your account?">
+        <div className="flex flex-col gap-4">
+          <p className="text-sm text-navy/60 dark:text-white/60 font-secondary">
+            This permanently deletes your profile, every split you own, your payment history, and your friend
+            connections. Splits you&apos;re a member of (not owner) will keep your entry but lose your name. This
+            can&apos;t be undone.
+          </p>
+          <Input
+            label='Type "DELETE" to confirm'
+            value={deleteConfirmText}
+            onChange={(e) => setDeleteConfirmText(e.target.value)}
+            placeholder="DELETE"
+            autoCapitalize="characters"
+          />
+          {deleteError && <p className="text-xs text-orange font-secondary">{deleteError}</p>}
+          <Button
+            fullWidth
+            size="lg"
+            variant="danger"
+            disabled={deleteConfirmText !== "DELETE" || deletingAccount}
+            onClick={handleDeleteAccount}
+          >
+            {deletingAccount ? "Deleting Account..." : "Delete My Account"}
+          </Button>
+          <button
+            onClick={closeDeleteModal}
+            disabled={deletingAccount}
+            className="text-center text-sm font-semibold text-navy/60 dark:text-white/60 font-secondary disabled:opacity-50"
+          >
+            Cancel
+          </button>
         </div>
       </Modal>
     </div>

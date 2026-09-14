@@ -63,6 +63,7 @@ interface AppState {
 
   hydrate: () => Promise<CurrentUser | null>;
   logOut: () => Promise<void>;
+  deleteAccount: () => Promise<void>;
 
   markNotificationRead: (id: string) => Promise<void>;
   markAllNotificationsRead: () => Promise<void>;
@@ -200,6 +201,36 @@ export const useAppStore = create<AppState>((set, get) => ({
       draft: emptyDraft,
       isFirstLogin: false,
       // darkMode is a device preference, not part of the account — leave it as-is
+    });
+  },
+
+  deleteAccount: async () => {
+    const res = await fetch("/api/account/delete", { method: "POST" });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}) as { error?: string });
+      throw new Error(body.error ?? "Couldn't delete your account. Please try again.");
+    }
+
+    notificationsUnsubscribe?.();
+    notificationsUnsubscribe = null;
+    clearReturningUser();
+    try {
+      // The account is already gone server-side by this point -- this just
+      // clears the now-dead session out of local storage.
+      await signOut();
+    } catch {
+      // expected if the server-side session is already invalidated
+    }
+    set({
+      initialized: false,
+      loading: false,
+      error: null,
+      user: null,
+      friends: [],
+      splits: [],
+      notifications: [],
+      draft: emptyDraft,
+      isFirstLogin: false,
     });
   },
 
