@@ -2,12 +2,14 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Image as ImageIcon, Sparkles, X } from "lucide-react";
+import { Crown, Image as ImageIcon, Sparkles, X } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
 import { captureVideoFrame, fileToJpegDataUrl } from "@/lib/imageCapture";
 import { scanReceiptImage } from "@/lib/scanReceipt";
 import { computeReceiptTotals, DEFAULT_SERVICE_CHARGE_RATE, DEFAULT_VAT_RATE } from "@/lib/splitEngine";
 import { genId } from "@/lib/utils";
+import { Button } from "@/components/ui/Button";
+import { PretzelIcon } from "@/components/ui/Logo";
 
 const CORNER_CLASSES = [
   "-top-1 -left-1 border-t-2 border-l-2 rounded-tl-2xl",
@@ -18,6 +20,9 @@ const CORNER_CLASSES = [
 
 export default function CapturePage() {
   const router = useRouter();
+  const initialized = useAppStore((s) => s.initialized);
+  const hydrate = useAppStore((s) => s.hydrate);
+  const user = useAppStore((s) => s.user);
   const startDraftFromReceipt = useAppStore((s) => s.startDraftFromReceipt);
   const clearDraft = useAppStore((s) => s.clearDraft);
 
@@ -31,6 +36,16 @@ export default function CapturePage() {
   const [capturedPreview, setCapturedPreview] = useState<string | null>(null);
 
   useEffect(() => {
+    hydrate();
+  }, [hydrate]);
+
+  const isPremium = user?.isPremium ?? false;
+
+  useEffect(() => {
+    // Scanning is a Premium feature — skip ever requesting camera access for a
+    // free account rather than showing a live camera it isn't allowed to use.
+    if (!isPremium) return;
+
     let cancelled = false;
     navigator.mediaDevices
       ?.getUserMedia({ video: { facingMode: "environment" } })
@@ -54,7 +69,7 @@ export default function CapturePage() {
       streamRef.current?.getTracks().forEach((t) => t.stop());
       streamRef.current = null;
     };
-  }, []);
+  }, [isPremium]);
 
   const handleScanResult = async (imageDataUrl: string) => {
     setProcessing(true);
@@ -107,6 +122,63 @@ export default function CapturePage() {
     router.push("/scan/verify");
   };
 
+  if (!initialized) {
+    return (
+      <div className="flex flex-1 flex-col items-center justify-center bg-navy-dark">
+        <PretzelIcon size={40} className="animate-pulse" />
+      </div>
+    );
+  }
+
+  if (!isPremium) {
+    return (
+      <div className="flex flex-1 flex-col bg-navy-dark text-white">
+        <div className="flex items-center justify-between px-5 pt-6">
+          <button
+            onClick={() => {
+              clearDraft();
+              router.push("/home");
+            }}
+            className="flex h-9 w-9 items-center justify-center rounded-2xl bg-white/10 active:scale-95 transition-transform"
+          >
+            <X size={18} />
+          </button>
+          <div className="flex items-center gap-1.5 rounded-2xl bg-skyblue/20 px-3 py-1.5">
+            <Crown size={14} className="text-skyblue" />
+            <span className="text-xs font-bold tracking-wide text-skyblue font-secondary">PREMIUM</span>
+          </div>
+          <div className="w-9" />
+        </div>
+
+        <div className="flex flex-1 flex-col items-center justify-center gap-4 px-8 text-center">
+          <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-skyblue/15 text-skyblue">
+            <Crown size={26} />
+          </span>
+          <div>
+            <p className="font-primary text-lg font-bold tracking-brand text-white">
+              Receipt scanning is a Premium feature
+            </p>
+            <p className="mt-1 text-sm text-white/60 font-secondary">
+              Upgrade to snap a photo and let AI read the items for you — or enter this bill manually for free.
+            </p>
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-3 px-6 pb-8 pt-2">
+          <Button fullWidth size="lg" onClick={() => router.push("/premium")}>
+            Go Premium
+          </Button>
+          <button
+            onClick={handleEnterManually}
+            className="text-center text-sm font-semibold text-white/60 font-secondary"
+          >
+            Enter Manually Instead
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-1 flex-col bg-navy-dark text-white">
       <div className="flex items-center justify-between px-5 pt-6">
@@ -123,9 +195,7 @@ export default function CapturePage() {
           <Sparkles size={14} className="text-skyblue" />
           <span className="text-xs font-bold tracking-wide text-skyblue font-secondary">AI-POWERED</span>
         </div>
-        <button onClick={handleEnterManually} className="text-xs font-semibold text-white/60 font-secondary">
-          Skip
-        </button>
+        <div className="w-9" />
       </div>
 
       <div className="relative flex flex-1 items-center justify-center px-8">

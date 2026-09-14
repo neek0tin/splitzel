@@ -4,6 +4,9 @@ export const LATE_FEE_PER_DAY = 5;
 export const CONVENIENCE_FEE = 5;
 export const DEFAULT_VAT_RATE = 0.12;
 export const DEFAULT_SERVICE_CHARGE_RATE = 0.1;
+/** Free accounts can have this many unsettled (pending) splits open at once;
+ *  Premium is unlimited. Settling one frees up a slot. */
+export const FREE_ACTIVE_SPLITS_LIMIT = 3;
 
 export function round2(value: number): number {
   return Math.round((value + Number.EPSILON) * 100) / 100;

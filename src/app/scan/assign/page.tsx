@@ -11,10 +11,14 @@ import { Input } from "@/components/ui/Input";
 import { Card } from "@/components/ui/Card";
 import { useAppStore } from "@/store/useAppStore";
 import { colorForName, formatCurrency, genId } from "@/lib/utils";
+import { getSplitStatus } from "@/lib/aggregates";
+import { FREE_ACTIVE_SPLITS_LIMIT } from "@/lib/splitEngine";
 
 export default function AssignMembersPage() {
   const router = useRouter();
   const hydrate = useAppStore((s) => s.hydrate);
+  const user = useAppStore((s) => s.user);
+  const splits = useAppStore((s) => s.splits);
   const draft = useAppStore((s) => s.draft);
   const friends = useAppStore((s) => s.friends);
   const addDraftMember = useAppStore((s) => s.addDraftMember);
@@ -48,6 +52,11 @@ export default function AssignMembersPage() {
 
   if (!draft.receipt || !draft.method) return null;
   const receipt = draft.receipt;
+
+  const activeOwnedSplits = user
+    ? splits.filter((s) => s.ownerId === user.id && getSplitStatus(s) === "pending").length
+    : 0;
+  const atFreeLimit = !user?.isPremium && activeOwnedSplits >= FREE_ACTIVE_SPLITS_LIMIT;
 
   const handleAddGuest = () => {
     if (!guestName.trim()) return;
@@ -186,16 +195,30 @@ export default function AssignMembersPage() {
       </div>
 
       <div className="px-6 pb-8 pt-2">
-        <Button fullWidth size="lg" disabled={draft.members.length < 2 || submitting} onClick={handleReview}>
-          {submitting ? "Creating Split..." : "Review Split"}
-        </Button>
-        {error && (
-          <p className="mt-2 text-center text-xs text-orange font-secondary">{error}</p>
-        )}
-        {!error && draft.members.length < 2 && (
-          <p className="mt-2 text-center text-xs text-navy/40 dark:text-white/40 font-secondary">
-            Add at least one more person to continue.
-          </p>
+        {atFreeLimit ? (
+          <>
+            <Button fullWidth size="lg" onClick={() => router.push("/premium")}>
+              Go Premium for Unlimited Splits
+            </Button>
+            <p className="mt-2 text-center text-xs text-navy/40 dark:text-white/40 font-secondary">
+              Free accounts can have up to {FREE_ACTIVE_SPLITS_LIMIT} active splits at a time. Settle one up, or go
+              Premium.
+            </p>
+          </>
+        ) : (
+          <>
+            <Button fullWidth size="lg" disabled={draft.members.length < 2 || submitting} onClick={handleReview}>
+              {submitting ? "Creating Split..." : "Review Split"}
+            </Button>
+            {error && (
+              <p className="mt-2 text-center text-xs text-orange font-secondary">{error}</p>
+            )}
+            {!error && draft.members.length < 2 && (
+              <p className="mt-2 text-center text-xs text-navy/40 dark:text-white/40 font-secondary">
+                Add at least one more person to continue.
+              </p>
+            )}
+          </>
         )}
       </div>
 
