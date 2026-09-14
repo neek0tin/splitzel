@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { ScreenHeader } from "@/components/ScreenHeader";
 
 const LAST_UPDATED = "September 2026";
-const CONTACT_EMAIL = "info@lisensyalab.com";
+const CONTACT_EMAIL = "splitzelco@gmail.com";
 
 export default function PrivacyPolicyPage() {
   const router = useRouter();
