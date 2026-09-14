@@ -24,7 +24,7 @@ import {
   type FriendCodeMatch,
 } from "@/lib/supabase/queries";
 import { computeReceiptTotals, DEFAULT_SERVICE_CHARGE_RATE, DEFAULT_VAT_RATE } from "@/lib/splitEngine";
-import { clearReturningUser, genId, markAsReturningUser } from "@/lib/utils";
+import { clearReturningUser, genId, isReturningUser, markAsReturningUser } from "@/lib/utils";
 import type {
   AppNotification,
   CurrentUser,
@@ -55,6 +55,11 @@ interface AppState {
   notifications: AppNotification[];
   draft: DraftScan;
   darkMode: boolean;
+  /** True for exactly the one hydrate() that completes a brand-new signup on
+   *  this browser (captured before markAsReturningUser() flips the flag that
+   *  drives this) -- the signal the first-time tutorial shows on. */
+  isFirstLogin: boolean;
+  dismissTutorial: () => void;
 
   hydrate: () => Promise<CurrentUser | null>;
   logOut: () => Promise<void>;
@@ -131,17 +136,28 @@ export const useAppStore = create<AppState>((set, get) => ({
   notifications: [],
   draft: emptyDraft,
   darkMode: false,
+  isFirstLogin: false,
+
+  dismissTutorial: () => set({ isFirstLogin: false }),
 
   hydrate: async () => {
     if (get().initialized || get().loading) return get().user;
     set({ loading: true, error: null });
     try {
+      const wasReturning = isReturningUser();
       const userId = await ensureSession();
       const user = await fetchProfile(userId);
       const friends = await fetchFriends();
       const friendsById = new Map(friends.map((f) => [f.id, f]));
       const splits = await fetchSplits(friendsById, { id: user.id, avatarColor: user.avatarColor });
-      set({ user, friends, splits, initialized: true, loading: false });
+      set({
+        user,
+        friends,
+        splits,
+        initialized: true,
+        loading: false,
+        isFirstLogin: !wasReturning && Boolean(user.firstName),
+      });
       if (user.firstName) markAsReturningUser();
 
       // Notifications are best-effort: if this table/migration isn't in place yet
@@ -182,6 +198,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       splits: [],
       notifications: [],
       draft: emptyDraft,
+      isFirstLogin: false,
       // darkMode is a device preference, not part of the account — leave it as-is
     });
   },

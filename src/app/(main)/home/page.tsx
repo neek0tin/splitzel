@@ -8,6 +8,7 @@ import { getUserBalance } from "@/lib/aggregates";
 import { formatCurrency } from "@/lib/utils";
 import { Avatar } from "@/components/ui/Avatar";
 import { SplitListItem } from "@/components/SplitListItem";
+import { TutorialOverlay } from "@/components/TutorialOverlay";
 
 function getGreeting() {
   const hour = new Date().getHours();
@@ -20,6 +21,7 @@ export default function HomePage() {
   const user = useAppStore((s) => s.user);
   const splits = useAppStore((s) => s.splits);
   const notifications = useAppStore((s) => s.notifications);
+  const isFirstLogin = useAppStore((s) => s.isFirstLogin);
   const unreadCount = notifications.filter((n) => !n.read).length;
 
   const recentSplits = useMemo(() => [...splits].sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1)).slice(0, 5), [splits]);
@@ -86,6 +88,8 @@ export default function HomePage() {
           ))}
         </div>
       </div>
+
+      {isFirstLogin && <TutorialOverlay />}
     </div>
   );
 }
