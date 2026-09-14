@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronRight, LogOut, Moon, Shield, Smartphone, Trash2, Upload, Wallet } from "lucide-react";
+import { ChevronRight, Crown, LogOut, Moon, Shield, Smartphone, Trash2, Upload, Wallet } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
 import { Avatar } from "@/components/ui/Avatar";
 import { Card } from "@/components/ui/Card";
@@ -11,6 +11,7 @@ import { Modal } from "@/components/ui/Modal";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { gcashQrUrl, removeGcashQr, uploadGcashQr } from "@/lib/gcashQr";
+import { formatDate } from "@/lib/utils";
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -116,7 +117,49 @@ export default function ProfilePage() {
           </div>
         </div>
 
-        <div className="mt-8">
+        <button
+          onClick={() => router.push("/premium")}
+          className={
+            user.isPremium
+              ? "mt-6 flex w-full items-center gap-3 rounded-2xl bg-skyblue/15 px-4 py-4 text-left active:scale-[0.99] transition-transform"
+              : "mt-6 flex w-full items-center gap-3 rounded-2xl bg-navy px-4 py-4 text-left active:scale-[0.99] transition-transform dark:bg-skyblue"
+          }
+        >
+          <span
+            className={
+              user.isPremium
+                ? "flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-skyblue/20 text-skyblue"
+                : "flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-white/15 text-white dark:bg-navy/15 dark:text-navy"
+            }
+          >
+            <Crown size={18} />
+          </span>
+          <div className="min-w-0 flex-1">
+            <p
+              className={
+                user.isPremium
+                  ? "text-sm font-bold text-navy dark:text-white font-secondary"
+                  : "text-sm font-bold text-white dark:text-navy font-secondary"
+              }
+            >
+              {user.isPremium ? "Splitzel Premium" : "Go Premium"}
+            </p>
+            <p
+              className={
+                user.isPremium
+                  ? "text-xs text-navy/60 dark:text-white/60 font-secondary"
+                  : "text-xs text-white/70 dark:text-navy/70 font-secondary"
+              }
+            >
+              {user.isPremium && user.premiumUntil
+                ? `Active until ${formatDate(user.premiumUntil)}`
+                : "Unlock scanning, unlimited splits, and more"}
+            </p>
+          </div>
+          <ChevronRight size={16} className={user.isPremium ? "text-navy/40 dark:text-white/40" : "text-white/60 dark:text-navy/60"} />
+        </button>
+
+        <div className="mt-6">
           <p className="mb-2 text-xs font-bold uppercase tracking-wide text-navy/40 dark:text-white/40 font-secondary">
             Payment Info
           </p>

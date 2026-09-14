@@ -73,6 +73,10 @@ interface AppState {
     }>
   ) => Promise<void>;
   toggleDarkMode: () => void;
+  /** Re-fetches the profile outright, bypassing hydrate()'s once-only guard --
+   *  for when something outside this client changed it (e.g. the premium
+   *  webhook landing after a PayMongo checkout redirect). */
+  refreshUser: () => Promise<void>;
 
   findFriendByCode: (code: string) => Promise<FriendCodeMatch | null>;
   connectFriend: (theirId: string) => Promise<void>;
@@ -219,6 +223,13 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   toggleDarkMode: () => set((state) => ({ darkMode: !state.darkMode })),
+
+  refreshUser: async () => {
+    const userId = get().user?.id;
+    if (!userId) return;
+    const user = await fetchProfile(userId);
+    set({ user });
+  },
 
   findFriendByCode: async (code) => {
     return findFriendByCodeQuery(code);

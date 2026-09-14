@@ -93,6 +93,7 @@ interface ProfileRow {
   bank_account_number: string | null;
   bank_account_name: string | null;
   gcash_qr_path: string | null;
+  premium_until: string | null;
 }
 
 function mapProfile(row: ProfileRow): CurrentUser {
@@ -110,6 +111,11 @@ function mapProfile(row: ProfileRow): CurrentUser {
       bankAccountName: row.bank_account_name ?? undefined,
       gcashQrPath: row.gcash_qr_path ?? undefined,
     },
+    // Computed from premium_until rather than trusting the stored is_premium flag
+    // literally, so a lapsed subscription doesn't need a cron job to "turn off" --
+    // it's just no longer in the future.
+    isPremium: Boolean(row.premium_until && new Date(row.premium_until) > new Date()),
+    premiumUntil: row.premium_until ?? undefined,
   };
 }
 

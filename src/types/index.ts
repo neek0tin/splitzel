@@ -15,6 +15,8 @@ export interface CurrentUser {
   avatarColor: string;
   friendCode: string;
   payment: PaymentInfo;
+  isPremium: boolean;
+  premiumUntil?: string;
 }
 
 /** A real, connected Splitzel account — sourced from their own profile, not typed in by you. */
