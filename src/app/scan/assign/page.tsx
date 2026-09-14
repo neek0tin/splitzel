@@ -67,6 +67,8 @@ export default function AssignMembersPage() {
       isGuest: true,
       isCurrentUser: false,
       status: "pending",
+      amountPaid: 0,
+      payments: [],
     });
     setGuestName("");
     setGuestOpen(false);
@@ -240,6 +242,8 @@ export default function AssignMembersPage() {
                   isGuest: false,
                   isCurrentUser: false,
                   status: "pending",
+                  amountPaid: 0,
+                  payments: [],
                 });
               }}
               className="flex items-center gap-3 rounded-2xl px-2 py-2.5 active:bg-navy/5 dark:active:bg-white/5"

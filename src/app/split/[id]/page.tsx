@@ -2,18 +2,19 @@
 
 import { use, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Bell, BellRing, CheckCircle2, Clock, Trash2 } from "lucide-react";
+import { Bell, BellRing, CheckCircle2, Clock, Pencil, Trash2 } from "lucide-react";
 import { ScreenHeader } from "@/components/ScreenHeader";
 import { Avatar } from "@/components/ui/Avatar";
 import { Card } from "@/components/ui/Card";
 import { StatusPill } from "@/components/ui/StatusPill";
 import { ProgressBar } from "@/components/ui/ProgressBar";
 import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
 import { Modal } from "@/components/ui/Modal";
 import { PretzelIcon } from "@/components/ui/Logo";
 import { SettleUpModal } from "@/components/SettleUpModal";
 import { useAppStore } from "@/store/useAppStore";
-import { getOverdueDays, getPaidCount, getShareForMember, getSplitStatus } from "@/lib/aggregates";
+import { getOverdueDays, getPaidCount, getRemainingForMember, getShareForMember, getSplitStatus } from "@/lib/aggregates";
 import { formatCurrency, formatDate } from "@/lib/utils";
 
 export default function SplitDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -27,12 +28,16 @@ export default function SplitDetailPage({ params }: { params: Promise<{ id: stri
   const markMemberPaid = useAppStore((s) => s.markMemberPaid);
   const nudgeMember = useAppStore((s) => s.nudgeMember);
   const deleteSplit = useAppStore((s) => s.deleteSplit);
+  const recordPayment = useAppStore((s) => s.recordPayment);
 
   const [settleOpen, setSettleOpen] = useState(false);
   const [nudgingId, setNudgingId] = useState<string | null>(null);
   const [nudgedIds, setNudgedIds] = useState<Set<string>>(new Set());
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [paymentModal, setPaymentModal] = useState<{ memberId: string; remaining: number } | null>(null);
+  const [paymentAmount, setPaymentAmount] = useState("");
+  const [loggingPayment, setLoggingPayment] = useState(false);
 
   useEffect(() => {
     hydrate();
@@ -83,6 +88,30 @@ export default function SplitDetailPage({ params }: { params: Promise<{ id: stri
       // non-critical — just let them try again
     } finally {
       setNudgingId(null);
+    }
+  };
+
+  const openPaymentModal = (memberId: string, remaining: number) => {
+    setPaymentAmount(remaining > 0 ? String(remaining) : "");
+    setPaymentModal({ memberId, remaining });
+  };
+
+  const handleLogPayment = async () => {
+    if (!paymentModal) return;
+    const amount = parseFloat(paymentAmount);
+    if (!Number.isFinite(amount) || amount <= 0) return;
+
+    setLoggingPayment(true);
+    try {
+      await recordPayment(split.id, paymentModal.memberId, amount);
+      // A payment that covers the full remaining balance also settles the
+      // member outright, matching what "Settle Up"/"Mark as Received" already do.
+      if (amount >= paymentModal.remaining) {
+        await markMemberPaid(split.id, paymentModal.memberId);
+      }
+      setPaymentModal(null);
+    } finally {
+      setLoggingPayment(false);
     }
   };
 
@@ -147,6 +176,8 @@ export default function SplitDetailPage({ params }: { params: Promise<{ id: stri
             {split.members.map((m) => {
               const share = shares.find((s) => s?.memberId === m.id);
               const canReceive = isPayee && !m.isCurrentUser && m.status === "pending";
+              const remaining = getRemainingForMember(split, m.id);
+              const canLogPayment = user?.isPremium && m.status === "pending" && (canReceive || m.isCurrentUser);
               return (
                 <Card key={m.id} outlined>
                   <div className="flex items-center gap-3">
@@ -159,6 +190,11 @@ export default function SplitDetailPage({ params }: { params: Promise<{ id: stri
                         {formatCurrency(share?.total ?? 0)}
                         {(share?.lateFee ?? 0) > 0 && <span className="text-orange"> incl. late fee</span>}
                       </p>
+                      {user?.isPremium && m.status === "pending" && m.amountPaid > 0 && (
+                        <p className="mt-0.5 text-xs font-semibold text-skyblue font-secondary">
+                          {formatCurrency(m.amountPaid)} paid &middot; {formatCurrency(remaining)} remaining
+                        </p>
+                      )}
                     </div>
                     {m.status === "paid" ? (
                       <CheckCircle2 size={20} className="text-yellow shrink-0" />
@@ -166,15 +202,25 @@ export default function SplitDetailPage({ params }: { params: Promise<{ id: stri
                       <StatusPill status="pending" />
                     )}
                   </div>
-                  {canReceive && (
+                  {(canReceive || canLogPayment) && (
                     <div className="mt-3 flex gap-2">
-                      <button
-                        onClick={() => markMemberPaid(split.id, m.id)}
-                        className="flex-1 rounded-2xl border-2 border-navy/15 dark:border-white/20 py-2 text-xs font-semibold text-navy dark:text-white active:scale-95 transition-transform"
-                      >
-                        Mark as Received
-                      </button>
-                      {!m.isGuest && (
+                      {canReceive && (
+                        <button
+                          onClick={() => markMemberPaid(split.id, m.id)}
+                          className="flex-1 rounded-2xl border-2 border-navy/15 dark:border-white/20 py-2 text-xs font-semibold text-navy dark:text-white active:scale-95 transition-transform"
+                        >
+                          Mark as Received
+                        </button>
+                      )}
+                      {canLogPayment && (
+                        <button
+                          onClick={() => openPaymentModal(m.id, remaining)}
+                          className="flex-1 rounded-2xl border-2 border-skyblue/40 py-2 text-xs font-semibold text-skyblue active:scale-95 transition-transform"
+                        >
+                          Log Payment
+                        </button>
+                      )}
+                      {canReceive && !m.isGuest && (
                         <button
                           onClick={() => handleNudge(m.id)}
                           disabled={nudgingId === m.id || nudgedIds.has(m.id)}
@@ -201,10 +247,20 @@ export default function SplitDetailPage({ params }: { params: Promise<{ id: stri
           </div>
         </div>
 
+        {user?.id === split.ownerId && user?.isPremium && (
+          <button
+            onClick={() => router.push(`/split/${split.id}/edit`)}
+            className="mt-6 flex w-full items-center justify-center gap-1.5 rounded-2xl border-2 border-skyblue/40 py-3 text-sm font-semibold text-skyblue active:scale-[0.98] transition-transform font-secondary"
+          >
+            <Pencil size={15} />
+            Edit Split
+          </button>
+        )}
+
         {user?.id === split.ownerId && (
           <button
             onClick={() => setConfirmDeleteOpen(true)}
-            className="mt-6 flex w-full items-center justify-center gap-1.5 rounded-2xl border-2 border-orange/30 py-3 text-sm font-semibold text-orange active:scale-[0.98] transition-transform font-secondary"
+            className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-2xl border-2 border-orange/30 py-3 text-sm font-semibold text-orange active:scale-[0.98] transition-transform font-secondary"
           >
             <Trash2 size={15} />
             Delete Split
@@ -244,6 +300,27 @@ export default function SplitDetailPage({ params }: { params: Promise<{ id: stri
           >
             Cancel
           </button>
+        </div>
+      </Modal>
+
+      <Modal open={!!paymentModal} onClose={() => setPaymentModal(null)} title="Log a Payment">
+        <div className="flex flex-col gap-4">
+          <p className="-mt-1 text-xs text-navy/50 dark:text-white/50 font-secondary">
+            {paymentModal &&
+              `Remaining balance: ${formatCurrency(paymentModal.remaining)}. Logging the full amount marks this as settled.`}
+          </p>
+          <Input
+            label="Amount"
+            type="number"
+            inputMode="decimal"
+            placeholder="0.00"
+            value={paymentAmount}
+            onChange={(e) => setPaymentAmount(e.target.value)}
+            autoFocus
+          />
+          <Button fullWidth size="lg" disabled={loggingPayment || !paymentAmount} onClick={handleLogPayment}>
+            {loggingPayment ? "Logging..." : "Log Payment"}
+          </Button>
         </div>
       </Modal>
     </div>

@@ -49,14 +49,27 @@ export interface Receipt {
 
 export type SplitMethod = "item" | "even";
 
+export interface SplitPayment {
+  id: string;
+  amount: number;
+  createdAt: string;
+}
+
 export interface SplitMember {
   id: string;
+  /** The underlying account's user id, for "me"/friend members — lets the
+   *  same person be grouped across different splits. Undefined for guests. */
+  userId?: string;
   name: string;
   avatarColor: string;
   isGuest: boolean;
   isCurrentUser: boolean;
   status: "paid" | "pending";
   paidAt?: string;
+  /** Sum of `payments` — logged separately from `status`, which only flips to
+   *  "paid" once payments cover the member's full share. */
+  amountPaid: number;
+  payments: SplitPayment[];
 }
 
 export interface ItemAssignment {
@@ -92,7 +105,7 @@ export interface DraftScan {
   assignments: ItemAssignment[];
 }
 
-export type NotificationType = "split_added" | "member_paid" | "marked_received" | "nudge";
+export type NotificationType = "split_added" | "member_paid" | "marked_received" | "nudge" | "split_edited";
 
 export interface AppNotification {
   id: string;

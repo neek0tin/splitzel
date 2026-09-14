@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronRight, Crown, LogOut, Moon, Shield, Smartphone, Trash2, Upload, Wallet } from "lucide-react";
+import { ChevronRight, Crown, HandCoins, LogOut, Moon, Shield, Smartphone, Trash2, Upload, Wallet } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
 import { Avatar } from "@/components/ui/Avatar";
 import { Card } from "@/components/ui/Card";
@@ -169,6 +169,12 @@ export default function ProfilePage() {
               label="Payment Info"
               value={user.payment.gcashNumber || "Not set"}
               onClick={openPaymentModal}
+            />
+            <Divider />
+            <RowButton
+              icon={<HandCoins size={18} />}
+              label="Reimbursements"
+              onClick={() => router.push("/reimbursements")}
             />
           </Card>
         </div>

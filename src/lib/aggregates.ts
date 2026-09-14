@@ -1,5 +1,5 @@
 import { calculateSplitShares, round2 } from "@/lib/splitEngine";
-import { hoursSince } from "@/lib/utils";
+import { colorForName, hoursSince } from "@/lib/utils";
 import type { ShareBreakdown, Split } from "@/types";
 
 export function getSplitShares(split: Split): ShareBreakdown[] {
@@ -22,6 +22,15 @@ export function getSplitShares(split: Split): ShareBreakdown[] {
 
 export function getShareForMember(split: Split, memberId: string): ShareBreakdown | undefined {
   return getSplitShares(split).find((s) => s.memberId === memberId);
+}
+
+/** A member's share minus what they've logged via partial payments, floored
+ *  at 0 for display (an overpayment doesn't produce a negative "still owes"). */
+export function getRemainingForMember(split: Split, memberId: string): number {
+  const share = getShareForMember(split, memberId);
+  const member = split.members.find((m) => m.id === memberId);
+  if (!share || !member) return 0;
+  return round2(Math.max(0, share.total - member.amountPaid));
 }
 
 export function getSplitStatus(split: Split): "settled" | "pending" {
@@ -48,16 +57,77 @@ export function getUserBalance(splits: Split[], currentUserId: string) {
       if (m.status !== "pending") return;
       const share = shares.find((s) => s.memberId === m.id);
       if (!share) return;
+      const remaining = Math.max(0, share.total - m.amountPaid);
 
       if (isPayee && !m.isCurrentUser) {
-        owed += share.total;
+        owed += remaining;
       } else if (!isPayee && m.isCurrentUser) {
-        owe += share.total;
+        owe += remaining;
       }
     });
   });
 
   return { owe: round2(owe), owed: round2(owed) };
+}
+
+export interface LedgerEntry {
+  /** The counterpart's user id, or `guest:<split_member id>` for a guest
+   *  (guests have no persistent identity to group across splits by). */
+  key: string;
+  name: string;
+  avatarColor: string;
+  theyOweYou: number;
+  youOweThem: number;
+  splitCount: number;
+}
+
+/** A per-person breakdown of outstanding balances across every split the
+ *  current user is in, not just one split at a time. */
+export function getReimbursementLedger(splits: Split[], currentUserId: string): LedgerEntry[] {
+  const entries = new Map<string, LedgerEntry>();
+  const getEntry = (key: string, name: string, avatarColor: string) => {
+    let entry = entries.get(key);
+    if (!entry) {
+      entry = { key, name, avatarColor, theyOweYou: 0, youOweThem: 0, splitCount: 0 };
+      entries.set(key, entry);
+    }
+    return entry;
+  };
+
+  splits.forEach((split) => {
+    const shares = getSplitShares(split);
+    const payeeId = split.payeeUserId ?? split.ownerId;
+    const isPayee = payeeId === currentUserId;
+
+    if (isPayee) {
+      split.members.forEach((m) => {
+        if (m.isCurrentUser || m.status !== "pending") return;
+        const share = shares.find((s) => s.memberId === m.id);
+        if (!share) return;
+        const remaining = round2(Math.max(0, share.total - m.amountPaid));
+        if (remaining <= 0) return;
+        const entry = getEntry(m.userId ?? `guest:${m.id}`, m.name, m.avatarColor);
+        entry.theyOweYou = round2(entry.theyOweYou + remaining);
+        entry.splitCount += 1;
+      });
+    } else {
+      const me = split.members.find((m) => m.isCurrentUser);
+      if (!me || me.status !== "pending") return;
+      const share = shares.find((s) => s.memberId === me.id);
+      if (!share) return;
+      const remaining = round2(Math.max(0, share.total - me.amountPaid));
+      if (remaining <= 0) return;
+      const payeeMember = split.members.find((m) => m.userId === payeeId);
+      const name = payeeMember?.name ?? "Someone";
+      const entry = getEntry(payeeId, name, payeeMember?.avatarColor ?? colorForName(name));
+      entry.youOweThem = round2(entry.youOweThem + remaining);
+      entry.splitCount += 1;
+    }
+  });
+
+  return [...entries.values()]
+    .filter((e) => e.theyOweYou > 0 || e.youOweThem > 0)
+    .sort((a, b) => b.theyOweYou - b.youOweThem - (a.theyOweYou - a.youOweThem));
 }
 
 export function getPaidCount(split: Split): { paid: number; total: number } {

@@ -14,6 +14,8 @@ import {
   markNotificationRead as markNotificationReadQuery,
   markSplitMemberPaid,
   nudgeSplitMember,
+  recordSplitPayment,
+  updateSplitReceipt,
   deleteSplit as deleteSplitRow,
   removeFriendConnection,
   signOut,
@@ -100,6 +102,15 @@ interface AppState {
   deleteSplit: (splitId: string) => Promise<void>;
 
   markMemberPaid: (splitId: string, memberId: string) => Promise<void>;
+  recordPayment: (splitId: string, memberId: string, amount: number) => Promise<void>;
+  editSplitReceipt: (params: {
+    splitId: string;
+    establishment: string;
+    items: { id: string; name: string; price: number; quantity: number }[];
+    vatRate: number;
+    serviceChargeRate: number;
+    assignments: ItemAssignment[];
+  }) => Promise<void>;
 }
 
 const emptyDraft: DraftScan = {
@@ -261,6 +272,8 @@ export const useAppStore = create<AppState>((set, get) => ({
             isGuest: false,
             isCurrentUser: true,
             status: "pending",
+            amountPaid: 0,
+            payments: [],
           },
         ],
         assignments: receipt.items.map((i) => ({ itemId: i.id, memberIds: [] })),
@@ -432,5 +445,51 @@ export const useAppStore = create<AppState>((set, get) => ({
             }
       ),
     }));
+  },
+
+  recordPayment: async (splitId, memberId, amount) => {
+    await recordSplitPayment(memberId, amount);
+    set((state) => ({
+      splits: state.splits.map((s) =>
+        s.id !== splitId
+          ? s
+          : {
+              ...s,
+              members: s.members.map((m) =>
+                m.id === memberId
+                  ? {
+                      ...m,
+                      amountPaid: m.amountPaid + amount,
+                      payments: [...m.payments, { id: genId("payment"), amount, createdAt: new Date().toISOString() }],
+                    }
+                  : m
+              ),
+            }
+      ),
+    }));
+  },
+
+  editSplitReceipt: async ({ splitId, establishment, items, vatRate, serviceChargeRate, assignments }) => {
+    const split = get().splits.find((s) => s.id === splitId);
+    if (!split) return;
+
+    await updateSplitReceipt({
+      splitId,
+      receiptId: split.receipt.id,
+      establishment,
+      items,
+      vatRate,
+      serviceChargeRate,
+      assignments,
+    });
+
+    const userId = await ensureSession();
+    const friendsById = new Map(get().friends.map((f) => [f.id, f]));
+    const currentUser = get().user;
+    const splits = await fetchSplits(friendsById, {
+      id: userId,
+      avatarColor: currentUser?.avatarColor ?? "#192F4D",
+    });
+    set({ splits });
   },
 }));

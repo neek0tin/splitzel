@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { Bell, Check, UserPlus, Wallet } from "lucide-react";
+import { Bell, Check, Pencil, UserPlus, Wallet } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { ScreenHeader } from "@/components/ScreenHeader";
 import { PretzelIcon } from "@/components/ui/Logo";
@@ -14,6 +14,7 @@ const ICONS: Record<NotificationType, typeof Bell> = {
   member_paid: Wallet,
   marked_received: Check,
   nudge: Bell,
+  split_edited: Pencil,
 };
 
 export default function NotificationsPage() {

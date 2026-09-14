@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/client";
 import { colorForName } from "@/lib/utils";
+import { computeReceiptTotals, round2 } from "@/lib/splitEngine";
 import type {
   AppNotification,
   CurrentUser,
@@ -235,7 +236,10 @@ const SPLIT_SELECT = `
     id, establishment, receipt_date, subtotal, vat_rate, service_charge_rate, vat, service_charge, total,
     items:receipt_items ( id, name, price, quantity )
   ),
-  members:split_members ( id, member_type, user_id, guest_name, status, paid_at ),
+  members:split_members (
+    id, member_type, user_id, guest_name, status, paid_at,
+    payments:split_payments ( id, amount, created_at )
+  ),
   assignments:split_item_assignments ( id, receipt_item_id, split_member_id )
 `;
 
@@ -266,6 +270,7 @@ interface RawSplitRow {
     guest_name: string | null;
     status: "pending" | "paid";
     paid_at: string | null;
+    payments: { id: string; amount: number; created_at: string }[];
   }[];
   assignments: { id: string; receipt_item_id: string; split_member_id: string }[];
 }
@@ -291,16 +296,24 @@ function mapSplit(row: RawSplitRow, friendsById: Map<string, Friend>, viewer: { 
   };
 
   const members: SplitMember[] = row.members.map((m) => {
+    const payments = m.payments
+      .map((p) => ({ id: p.id, amount: p.amount, createdAt: p.created_at }))
+      .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+    const amountPaid = round2(payments.reduce((sum, p) => sum + p.amount, 0));
+
     if (m.member_type === "me") {
       const isViewer = row.owner.id === viewer.id;
       return {
         id: m.id,
+        userId: row.owner.id,
         name: isViewer ? "You" : `${row.owner.first_name} ${row.owner.last_name}`.trim(),
         avatarColor: row.owner.avatar_color,
         isGuest: false,
         isCurrentUser: isViewer,
         status: m.status,
         paidAt: m.paid_at ?? undefined,
+        amountPaid,
+        payments,
       };
     }
     if (m.member_type === "friend") {
@@ -308,12 +321,15 @@ function mapSplit(row: RawSplitRow, friendsById: Map<string, Friend>, viewer: { 
       const friend = m.user_id ? friendsById.get(m.user_id) : undefined;
       return {
         id: m.id,
+        userId: m.user_id ?? undefined,
         name: isViewer ? "You" : (friend?.name ?? "Unknown Friend"),
         avatarColor: isViewer ? viewer.avatarColor : (friend?.avatarColor ?? colorForName(friend?.name ?? m.id)),
         isGuest: false,
         isCurrentUser: isViewer,
         status: m.status,
         paidAt: m.paid_at ?? undefined,
+        amountPaid,
+        payments,
       };
     }
     const guestName = m.guest_name ?? "Guest";
@@ -325,6 +341,8 @@ function mapSplit(row: RawSplitRow, friendsById: Map<string, Friend>, viewer: { 
       isCurrentUser: false,
       status: m.status,
       paidAt: m.paid_at ?? undefined,
+      amountPaid,
+      payments,
     };
   });
 
@@ -439,6 +457,108 @@ export async function createSplit(params: {
   }
 
   return splitRow.id;
+}
+
+/**
+ * Edits an existing split's receipt (establishment, items, VAT/service charge
+ * rate) and, for item-method splits, who's assigned to what. Shares are never
+ * cached -- they're computed live from the receipt + assignments + method
+ * everywhere they're displayed -- so persisting these changes is the entire
+ * "automatic adjustment"; every member's share recalculates on next read.
+ * RLS already restricts writes to receipts/receipt_items/split_item_assignments
+ * to the split's owner, so this fails outright for anyone else.
+ */
+export async function updateSplitReceipt(params: {
+  splitId: string;
+  receiptId: string;
+  establishment: string;
+  items: { id: string; name: string; price: number; quantity: number }[];
+  vatRate: number;
+  serviceChargeRate: number;
+  assignments: ItemAssignment[];
+}): Promise<void> {
+  const { splitId, receiptId, establishment, items, vatRate, serviceChargeRate, assignments } = params;
+
+  const totals = computeReceiptTotals(items, vatRate, serviceChargeRate);
+  const { error: receiptErr } = await supabase
+    .from("receipts")
+    .update({
+      establishment,
+      vat_rate: vatRate,
+      service_charge_rate: serviceChargeRate,
+      subtotal: totals.subtotal,
+      vat: totals.vat,
+      service_charge: totals.serviceCharge,
+      total: totals.total,
+    })
+    .eq("id", receiptId);
+  if (receiptErr) throw receiptErr;
+
+  const { data: existingItems, error: fetchErr } = await supabase
+    .from("receipt_items")
+    .select("id")
+    .eq("receipt_id", receiptId);
+  if (fetchErr) throw fetchErr;
+  const existingIds = new Set((existingItems ?? []).map((i) => i.id));
+
+  // Items whose id isn't a real row yet are new (drafted client-side with a
+  // temporary genId()); everything else is either kept (update in place) or
+  // was removed from the draft (delete).
+  const newItems = items.filter((i) => !existingIds.has(i.id));
+  const keptItems = items.filter((i) => existingIds.has(i.id));
+  const keptIds = new Set(keptItems.map((i) => i.id));
+  const removedIds = [...existingIds].filter((id) => !keptIds.has(id));
+
+  if (removedIds.length > 0) {
+    const { error } = await supabase.from("receipt_items").delete().in("id", removedIds);
+    if (error) throw error;
+  }
+
+  for (const item of keptItems) {
+    const { error } = await supabase
+      .from("receipt_items")
+      .update({ name: item.name, price: item.price, quantity: item.quantity })
+      .eq("id", item.id);
+    if (error) throw error;
+  }
+
+  const itemIdMap = new Map<string, string>();
+  if (newItems.length > 0) {
+    const { data: insertedItems, error } = await supabase
+      .from("receipt_items")
+      .insert(newItems.map((i) => ({ receipt_id: receiptId, name: i.name, price: i.price, quantity: i.quantity })))
+      .select();
+    if (error) throw error;
+    newItems.forEach((draftItem, idx) => itemIdMap.set(draftItem.id, insertedItems[idx].id));
+  }
+
+  // Simplest correct approach for assignments: replace them wholesale rather
+  // than diffing, since every item just got its id remapped above anyway.
+  const { error: delAssignErr } = await supabase.from("split_item_assignments").delete().eq("split_id", splitId);
+  if (delAssignErr) throw delAssignErr;
+
+  const assignmentInserts: { split_id: string; receipt_item_id: string; split_member_id: string }[] = [];
+  assignments.forEach((a) => {
+    const realItemId = itemIdMap.get(a.itemId) ?? a.itemId;
+    a.memberIds.forEach((memberId) => {
+      assignmentInserts.push({ split_id: splitId, receipt_item_id: realItemId, split_member_id: memberId });
+    });
+  });
+  if (assignmentInserts.length > 0) {
+    const { error } = await supabase.from("split_item_assignments").insert(assignmentInserts);
+    if (error) throw error;
+  }
+
+  const { error: notifyErr } = await supabase.rpc("notify_split_edited", { p_split_id: splitId });
+  if (notifyErr) throw notifyErr;
+}
+
+export async function recordSplitPayment(splitMemberId: string, amount: number): Promise<void> {
+  const { error } = await supabase.rpc("record_split_payment", {
+    p_split_member_id: splitMemberId,
+    p_amount: amount,
+  });
+  if (error) throw error;
 }
 
 /**
