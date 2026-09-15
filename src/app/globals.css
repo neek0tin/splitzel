@@ -11,8 +11,8 @@
   --color-cream: #faf6ee;
   --color-surface-dark: #22385a;
 
-  --font-primary: var(--font-primary-raw), "Syne", sans-serif;
-  --font-secondary: var(--font-secondary-raw), "Space Grotesk", sans-serif;
+  --font-primary: var(--font-primary-raw), "Montserrat Arabic", sans-serif;
+  --font-secondary: var(--font-secondary-raw), "Basis Grotesque Arabic Pro", sans-serif;
 
   --tracking-brand: -0.045em;
 

@@ -43,3 +43,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# licensed brand fonts -- fetched at build time from private Supabase Storage,
+# never committed (see scripts/fetch-fonts.mjs and 0013_fonts_bucket.sql)
+/src/fonts/

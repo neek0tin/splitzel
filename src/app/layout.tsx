@@ -1,18 +1,24 @@
 import type { Metadata, Viewport } from "next";
-import { Syne, Space_Grotesk } from "next/font/google";
+import localFont from "next/font/local";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import "./globals.css";
 
-const primaryFont = Syne({
+const primaryFont = localFont({
   variable: "--font-primary-raw",
-  subsets: ["latin"],
-  weight: ["600", "700", "800"],
+  src: [
+    { path: "../fonts/montserrat-arabic/Montserrat-Arabic-SemiBold-600.otf", weight: "600", style: "normal" },
+    { path: "../fonts/montserrat-arabic/Montserrat-Arabic-Bold-700.otf", weight: "700", style: "normal" },
+    { path: "../fonts/montserrat-arabic/Montserrat-Arabic-ExtraBold-800.otf", weight: "800", style: "normal" },
+  ],
 });
 
-const secondaryFont = Space_Grotesk({
+const secondaryFont = localFont({
   variable: "--font-secondary-raw",
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
+  src: [
+    { path: "../fonts/basis-grotesque-arabic/BasisGrotesqueArabicPro-Regular-400.ttf", weight: "400", style: "normal" },
+    { path: "../fonts/basis-grotesque-arabic/BasisGrotesqueArabicPro-Medium-500.ttf", weight: "500", style: "normal" },
+    { path: "../fonts/basis-grotesque-arabic/BasisGrotesqueArabicPro-Bold-700.ttf", weight: "700", style: "normal" },
+  ],
 });
 
 export const metadata: Metadata = {
