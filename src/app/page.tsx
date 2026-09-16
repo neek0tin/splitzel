@@ -56,25 +56,18 @@ export default function SplashPage() {
   if (returning) {
     return (
       <div className="flex flex-1 flex-col items-center justify-center px-8">
-        <PretzelFillIcon size={72} progress={progress} />
+        <PretzelFillIcon size={160} progress={progress} />
       </div>
     );
   }
 
   return (
-    <div className="flex flex-1 flex-col items-center justify-center gap-6 px-8">
+    <div className="flex flex-1 flex-col items-center justify-center px-8">
       <div className="flex flex-col items-center gap-4">
         <SplitzelLogo size="lg" />
         <p className="text-sm font-semibold text-navy/60 dark:text-white/60 tracking-brand">
           Tie the Bills Up.
         </p>
-      </div>
-
-      <div className="mt-6 h-2 w-40 overflow-hidden rounded-2xl bg-navy/10 dark:bg-white/10">
-        <div
-          className="h-full rounded-2xl bg-skyblue transition-[width] duration-75 ease-linear"
-          style={{ width: `${progress}%` }}
-        />
       </div>
     </div>
   );

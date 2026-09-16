@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Crown, Image as ImageIcon, Sparkles, X } from "lucide-react";
+import { Crown, Image as ImageIcon, Sparkles, SwitchCamera, X } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
 import { captureVideoFrame, fileToJpegDataUrl } from "@/lib/imageCapture";
 import { scanReceiptImage } from "@/lib/scanReceipt";
@@ -34,6 +34,7 @@ export default function CapturePage() {
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [capturedPreview, setCapturedPreview] = useState<string | null>(null);
+  const [facingMode, setFacingMode] = useState<"environment" | "user">("environment");
 
   useEffect(() => {
     hydrate();
@@ -47,8 +48,9 @@ export default function CapturePage() {
     if (!isPremium) return;
 
     let cancelled = false;
+    setCameraError(null);
     navigator.mediaDevices
-      ?.getUserMedia({ video: { facingMode: "environment" } })
+      ?.getUserMedia({ video: { facingMode } })
       .then((stream) => {
         if (cancelled) {
           stream.getTracks().forEach((t) => t.stop());
@@ -69,7 +71,12 @@ export default function CapturePage() {
       streamRef.current?.getTracks().forEach((t) => t.stop());
       streamRef.current = null;
     };
-  }, [isPremium]);
+  }, [isPremium, facingMode]);
+
+  const handleFlipCamera = () => {
+    if (processing) return;
+    setFacingMode((prev) => (prev === "environment" ? "user" : "environment"));
+  };
 
   const handleScanResult = async (imageDataUrl: string) => {
     setProcessing(true);
@@ -246,7 +253,14 @@ export default function CapturePage() {
           <span className={`h-16 w-16 rounded-full bg-white ${processing ? "animate-pulse" : ""}`} />
         </button>
 
-        <div className="h-12 w-12" />
+        <button
+          onClick={handleFlipCamera}
+          disabled={processing}
+          aria-label="Switch camera"
+          className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/10 active:scale-95 transition-transform disabled:opacity-50"
+        >
+          <SwitchCamera size={20} />
+        </button>
       </div>
 
       <style>{`
