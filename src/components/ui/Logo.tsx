@@ -23,7 +23,7 @@ export function SplitzelLogo({ size = "md", className }: { size?: "sm" | "md" | 
 /** Inline copy of public/logo.svg's markup so its fill can be revealed with a clip-path. */
 function PretzelSvgArt({ className }: { className?: string }) {
   return (
-    <svg viewBox="0 0 160 160" className={className}>
+    <svg viewBox="12 2 130 130" className={className}>
       <defs>
         <style>{`
           .cls-1 { fill: none; stroke: #4949e9; }

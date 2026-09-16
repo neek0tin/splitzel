@@ -63,7 +63,7 @@ export default function SplashPage() {
 
   return (
     <div className="flex flex-1 flex-col items-center justify-center px-8">
-      <div className="flex flex-col items-center gap-4">
+      <div className="flex flex-col items-center gap-1">
         <SplitzelLogo size="lg" />
         <p className="text-sm font-semibold text-navy/60 dark:text-white/60 tracking-brand">
           Tie the Bills Up.

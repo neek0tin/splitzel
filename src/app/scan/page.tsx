@@ -48,23 +48,26 @@ export default function CapturePage() {
     if (!isPremium) return;
 
     let cancelled = false;
-    setCameraError(null);
-    navigator.mediaDevices
-      ?.getUserMedia({ video: { facingMode } })
-      .then((stream) => {
-        if (cancelled) {
-          stream.getTracks().forEach((t) => t.stop());
-          return;
-        }
-        streamRef.current = stream;
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-          videoRef.current.play().catch(() => {});
-        }
-      })
-      .catch(() => {
-        if (!cancelled) setCameraError("Camera access was denied or isn't available. You can still upload a photo.");
-      });
+    const requestCamera = () => {
+      setCameraError(null);
+      navigator.mediaDevices
+        ?.getUserMedia({ video: { facingMode } })
+        .then((stream) => {
+          if (cancelled) {
+            stream.getTracks().forEach((t) => t.stop());
+            return;
+          }
+          streamRef.current = stream;
+          if (videoRef.current) {
+            videoRef.current.srcObject = stream;
+            videoRef.current.play().catch(() => {});
+          }
+        })
+        .catch(() => {
+          if (!cancelled) setCameraError("Camera access was denied or isn't available. You can still upload a photo.");
+        });
+    };
+    requestCamera();
 
     return () => {
       cancelled = true;
