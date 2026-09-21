@@ -43,6 +43,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <div className="max-w-md mx-auto min-h-screen relative shadow-2xl flex flex-col justify-between overflow-x-hidden bg-white dark:bg-navy-dark">
           {children}
         </div>
+        <Analytics />
       </body>
     </html>
   );
