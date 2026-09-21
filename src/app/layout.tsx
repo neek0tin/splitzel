@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import "./globals.css";
+import { Analytics } from "@vercel/analytics/next"
 
 const primaryFont = localFont({
   variable: "--font-primary-raw",
